@@ -15,7 +15,7 @@ ssh -i ~/.ssh/gcp_id.rsa -A -J atikhonov.gcp@34.76.12.102 atikhonov.gcp@10.132.0
 #репозитории
 xxx$ cat ~/.ssh/config 
 Host bastion
-	HostName 34.76.12.102
+	HostName 34.76.108.95
 	User atikhonov.gcp
 	IdentityFile ~/.ssh/gcp_id_rsa
 Host someinternalhost
