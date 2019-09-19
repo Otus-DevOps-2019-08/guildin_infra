@@ -23,3 +23,5 @@ Host someinternalhost
 	User atikhonov.gcp
 	ProxyJump bastion
 
+bastion_IP = 34.76.108.95
+someinternalhost_IP = 10.132.0.3
