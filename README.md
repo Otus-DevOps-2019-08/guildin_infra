@@ -43,7 +43,7 @@ gcloud compute instances create reddit-app\
   --image-project=ubuntu-os-cloud \
   --machine-type=g1-small \
   --tags puma-server \
-  --metadata-from-file startup-script=~/github/guildin_infra/install_n_deploy.sh
+  --metadata-from-file startup-script=install_n_deploy.sh \
   --restart-on-failure
 
 -логин в ВМ reddit-app
@@ -101,5 +101,5 @@ gcloud compute firewall-rules create default-puma-server --allow tcp:9292 --sour
 -Ждем некоторое время... Profit!
 
 
-testapp_IP = 34.76.128.6
+testapp_IP = 104.155.111.133
 testapp_port = 9292
