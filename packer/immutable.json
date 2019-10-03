@@ -5,13 +5,12 @@
             "project_id": "{{user `project_id`}}",
             "image_name": "{{user `image_name`}}",
             "image_family": "{{user `image_family`}}",
-            "source_image_family": "{{user `source_image_family`}}",
+            "source_image": "{{user `source_image_family`}}",
             "zone": "europe-west1-b",
             "ssh_username": "{{user `ssh_username`}}",
             "machine_type": "{{user `machine_type`}}",
             "image_description": "{{user `image_description`}}",
             "disk_type": "{{user `disk_type`}}",
-            "network":" {{user `network`}}",
             "tags": "{{user `tags`}}"
         }
     ],

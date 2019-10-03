@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 # Background process configuration (use with --daemon in ExecStart)
-Type=forking
+Type=simple
 
 # Preferably configure a non-privileged user
 # User=
@@ -15,14 +15,14 @@ WorkingDirectory=/home/atikhonov.gcp/reddit
 
 # The command to start Puma
 # (replace "<WD>" below)
-ExecStart=bundle exec puma --daemon --dir /home/atikhonov.gcp/reddit
+ExecStart=/usr/local/bin/puma -d --dir /home/atikhonov.gcp/reddit
 
 # The command to stop Puma
 # (replace "<WD>" below)
-ExecStop=bundle exec pumactl -S /tmp/puma.state stop
+#ExecStop=bundle exec pumactl -S /tmp/puma.state stop
 
 # Path to PID file so that systemd knows which is the master process
-PIDFile=/tmp/puma.pid
+#PIDFile=/tmp/puma.pid
 
 # Should systemd restart puma?
 # Use "no" (the default) to ensure no interference when using
