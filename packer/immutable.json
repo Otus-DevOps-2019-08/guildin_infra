@@ -22,8 +22,13 @@
             "execute_command": "{{.Path}}"
         },
         {
+            "type": "file",
+            "source": "files/puma.service",
+            "destination": "/tmp/puma.service"
+        },
+        {
             "type": "shell",
-            "script": "scripts/unit_puma.sh",
+            "script": "files/unit_puma.sh",
             "execute_command": "sudo {{.Path}}"
         }
     ]
