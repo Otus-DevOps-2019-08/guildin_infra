@@ -1,6 +1,6 @@
     {
-    "project_id": "",
-    "source_image_family": "",
+    "project_id": "infra-253310",
+    "source_image_family": "ubuntu-1604-lts",
     "machine_type": "f1-micro",
     "image_description": "IMAGE DESCRIPTION BY DEFAULT",
     "disk_size":"8",
