@@ -104,3 +104,23 @@ gcloud compute firewall-rules create default-puma-server --allow tcp:9292 --sour
 testapp_IP = 104.155.111.133 
 testapp_port = 9292 
 
+
+#Сборка образов VM при помощи Packer
+
+##Базовое задание
+- Установлен packer (packer.io), создан ADC для авторизации:
+gcloud auth application-default login
+- созданы шаблон и файл уточнений для него: ubuntu16.json и variables.json[.example]; с помощью packer validate проверена корректность синтаксиса
+Данные файлы описывают образ ВМ ubuntu-1604-lts с установленными ruby и mongodb
+- используя вышеуказанные файлы сформирован образ reddit-base-[дата] семейства reddit-base (наименования условные) 
+
+##Самостоятельное задание
+- Файл с переменными variables.json, внесен в .gitignore
+- Пользовательские данные выведены в variables.json
+- variables.json.example
+
+##Задание со *
+- На основе шаблона reddit-base создан шаблон immutable.json (семейство reddit-full). Данный шаблон описывает развертывание на базовом шаблоне puma server.
+- puma.service описывает запуск сервиса через systemd.unit
+- Сценарий create-redditvm.sh написан. 
+
