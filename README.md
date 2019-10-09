@@ -124,3 +124,42 @@ gcloud auth application-default login
 - puma.service описывает запуск сервиса через systemd.unit
 - Сценарий create-redditvm.sh написан. 
 
+
+
+
+
+# Terraform
+
+##Базовое задание
+...
+...
+
+##Задание со *
+
+- Добавлен ssh ключ в консоли CGP, осуществлен вход через него (проверка), запущен terraform apply:
+google_compute_firewall.firewall_puma: Refreshing state... [id=allow-puma-default]
+google_compute_instance.app: Refreshing state... [id=reddit-app]
+
+Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+app_external_ip = 35.205.188.45
+
+Отсутствие реакции озадачивает. 
+
+##Задание с **
+###Балансировщик
+http {
+    upstream myapp1 {
+        server srv1.example.com;
+    }
+
+    server {
+        listen 80;
+
+        location / {
+            proxy_pass http://;
+        }
+    }
+}
