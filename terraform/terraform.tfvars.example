@@ -1,4 +1,8 @@
-project = "my_project_id"
-public_key_path = "~/.ssh/id_rsa.pub"
-private_key_path = "~/.ssh/unencrypted_key_is_not_good.rsa"
+project = "infra-253310"
+public_key_path = "~/.ssh/appuser.pub"
+private_key_path = "~/.ssh/appuser"
 disk_image = "reddit-base"
+another_user     = "appuser1"
+another_pubkey   = "~/.ssh/appuser1.pub"
+another_privkey  = "~/.ssh/appuser1"
+
