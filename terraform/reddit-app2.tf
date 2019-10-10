@@ -1,18 +1,10 @@
 terraform {
-  # Версия terraform
+  # Версия terraform Travis ругается, поэтому поставим не 0.12.10, а 0.12.8, например
   required_version = "0.12.10"
 }
 
-provider "google" {
-  # Версия провайдера
-  version = "2.15"
-
-  # ID проекта
-  project = var.project
-  region  = var.region
-}
-resource "google_compute_instance" "app" {
-  name         = "reddit-app"
+resource "google_compute_instance" "app2" {
+  name         = "reddit-app2"
   machine_type = "f1-micro"
   zone         = var.zone
   boot_disk {
@@ -23,7 +15,7 @@ resource "google_compute_instance" "app" {
   metadata = {
     ssh-keys = "appuser:${file(var.public_key_path)} \nappuser1:${file(var.public_key_path)} \nappuser2:${file(var.public_key_path)}"
   }
-  tags = ["reddit-app"]
+  tags = ["reddit-app2"]
   network_interface {
     network = "default"
     access_config {}
@@ -43,19 +35,5 @@ resource "google_compute_instance" "app" {
   provisioner "remote-exec" {
     script = "files/deploy.sh"
   }
-}
-resource "google_compute_firewall" "firewall_puma" {
-  name = "allow-puma-default"
-  # Название сети, в которой действует правило
-  network = "default"
-  # Какой доступ разрешить
-  allow {
-    protocol = "tcp"
-    ports    = ["9292"]
-  }
-  # Каким адресам разрешаем доступ
-  source_ranges = ["0.0.0.0/0"]
-  # Правило применимо для инстансов с перечисленными тэгами
-  target_tags = ["reddit-app"]
 }
 

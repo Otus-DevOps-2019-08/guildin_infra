@@ -1,40 +1,41 @@
-terraform {
-  # Версия terraform
-  required_version = "0.12.10"
+resource "google_compute_target_http_proxy" "default" {
+  name        = "test-proxy"
+  url_map     = "${google_compute_url_map.default.self_link}"
 }
 
-resource "google_compute_instance" "lb" {
-  name         = "load-balancer"
-  machine_type = "f1-micro"
-  zone         = var.zone
-  boot_disk {
-    initialize_params {
-      image = var.disk_image
+resource "google_compute_url_map" "default" {
+  name        = "url-map"
+  default_service = "${google_compute_backend_service.default.self_link}"
+
+  host_rule {
+    hosts        = ["mysite.com"]
+    path_matcher = "allpaths"
+  }
+
+  path_matcher {
+    name            = "allpaths"
+    default_service = "${google_compute_backend_service.default.self_link}"
+
+    path_rule {
+      paths   = ["/*"]
+      service = "${google_compute_backend_service.default.self_link}"
     }
   }
-  metadata = {
-    ssh-keys = "appuser:${file(var.public_key_path)} \nappuser1:${file(var.public_key_path)} \nappuser2:${file(var.public_key_path)}"
-  }
-  tags = ["http-server"]
-  network_interface {
-    network = "default"
-    access_config {}
-  }
-  connection {
-    type  = "ssh"
-    host  = self.network_interface[0].access_config[0].nat_ip
-    user  = "appuser"
-    agent = false
-    # путь до приватного ключа
-    private_key = file(var.private_key_path)
-  }
-    provisioner "file" {
-    source      = "files/lb.conf"
-    destination = "/tmp/lb.conf"
-  }
-  provisioner "remote-exec" {
-    script = "files/deploy-nginx.sh"
-  }
-
-  
 }
+
+resource "google_compute_backend_service" "default" {
+  name        = "backend-service"
+  port_name   = "http"
+  protocol    = "HTTP"
+  timeout_sec = 10
+
+  health_checks = ["${google_compute_http_health_check.default.self_link}"]
+}
+
+resource "google_compute_http_health_check" "default" {
+  name               = "http-health-check"
+  request_path       = "/"
+  check_interval_sec = 1
+  timeout_sec        = 1
+}
+

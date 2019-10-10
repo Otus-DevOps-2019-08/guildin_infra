@@ -34,3 +34,4 @@ variable another_privkey {
   description = "appuser for *-task 1"
   default     = "~/.ssh/appuser1"
 }
+
