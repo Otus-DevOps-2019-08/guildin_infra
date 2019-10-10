@@ -8,11 +8,11 @@ guildin Infra repository
 ssh -i ~/.ssh/gcp_id.rsa -A -J atikhonov.gcp@34.76.12.102 atikhonov.gcp@10.132.0.3
 
 #Дополнительное задание:
-#Предложить вариант решения для подключения из консоли при
-#помощи команды вида ssh someinternalhost из локальной
-#консоли рабочего устройства, чтобы подключение выполнялось по
-#алиасу someinternalhost и внести его в README.md в вашем
-#репозитории
+Предложить вариант решения для подключения из консоли при
+помощи команды вида ssh someinternalhost из локальной
+консоли рабочего устройства, чтобы подключение выполнялось по
+алиасу someinternalhost
+```
 xxx$ cat ~/.ssh/config 
 Host bastion
 	HostName 34.76.108.95
@@ -22,13 +22,12 @@ Host someinternalhost
 	HostName 10.132.0.3
 	User atikhonov.gcp
 	ProxyJump bastion
+```
 
 bastion_IP = 34.76.108.95
 someinternalhost_IP = 10.132.0.3
 
-##Деплой тестового приложения
-
-###Проверка ДЗ
+#Деплой тестового приложения
 ##Установка GC SDK:
 echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
 #Prerequisites
@@ -36,7 +35,8 @@ apt-get install apt-transport-https ca-certificates
 curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
 sudo apt-get update && sudo apt-get install google-cloud-sdk
 
-#создание нового экземпляра приложения:
+##создание нового экземпляра приложения:
+```
 gcloud compute instances create reddit-app\
   --boot-disk-size=10GB \
   --image-family ubuntu-1604-lts \
@@ -45,8 +45,9 @@ gcloud compute instances create reddit-app\
   --tags puma-server \
   --metadata-from-file startup-script=install_n_deploy.sh \
   --restart-on-failure
+```
 
--логин в ВМ reddit-app
+##логин в ВМ reddit-app
 -установка ruby (sudo apt update && sudo apt install -y ruby-full ruby-bundler build-essential)
 -Проверка ruby (ruby -v) >>> ruby 2.3.1p112 (2016-04-26) [x86_64-linux-gnu]
 -Проверка bundler (bundler -v) >>> Bundler version 1.11.2
@@ -64,23 +65,26 @@ GPG error: http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/3.2 Release: Th
 -sudo apt update
 -sudo apt install -y mongodb-org
 
-#Запуск MongoDB, установка службы, проверка
--sudo systemctl start mongod
--sudo systemctl enable mongod
--sudo systemctl status mongod
+##Запуск MongoDB, установка службы, проверка
+```
+sudo systemctl start mongod
+sudo systemctl enable mongod
+sudo systemctl status mongod
+```
 
-#Deploy
+##Deploy
 git clone -b monolith https://github.com/express42/reddit.git
 cd reddit && bundle install 
 
-#Настройка брандмауэра:
+##Настройка брандмауэра:
 -создано правило default-puma-server с тегом puma-server для 0.0.0.0/0 на порт 9292 
 -проверена работоспособность веб-интерфейса
 
-#самостоятельная работа
+##самостоятельная работа
 -скрипты install_ruby.sh, install_mongodb.sh, deploy.sh созданы, сделаны исполняемыми
 -на их базе сформирован startup_script install_n_deploy.sh:
 -проверена его работа на автодеплое экземпляра:
+```
 gcloud compute instances create reddit-app4\
   --boot-disk-size=10GB \
   --image-family ubuntu-1604-lts \
@@ -89,8 +93,9 @@ gcloud compute instances create reddit-app4\
   --tags puma-server \
   --metadata-from-file startup-script=install_n_deploy.sh \
   --restart-on-failure
+```
 
-#Дополнительное задание
+##Дополнительное задание
  default-puma-server - удалить и создать заново
 -смотрим что есть:
 gcloud compute firewall-rules list
@@ -136,7 +141,7 @@ gcloud auth application-default login
 
 ##Задание со *
 
-- Добавлен ssh ключ в консоли CGP, осуществлен вход через него (проверка), запущен terraform apply:
+- Добавлен ssh ключ [appuser_web] в консоли CGP, осуществлен вход через него (проверка), запущен terraform apply:
 google_compute_firewall.firewall_puma: Refreshing state... [id=allow-puma-default]
 google_compute_instance.app: Refreshing state... [id=reddit-app]
 
@@ -150,16 +155,36 @@ app_external_ip = 35.205.188.45
 
 ##Задание с **
 ###Балансировщик
-http {
-    upstream myapp1 {
-        server srv1.example.com;
-    }
+Создан файл lb.tf, описан манифест ВМ. 
+```
+#!/bin/bash
+sudo apt install --yes nginx
+sudo mv /tmp/lb.conf /etc/nginx/conf.d/balancer
+sudo echo "include conf.d/balancer;" >> /etc/nginx/nginx.conf
+sudo service nginx restart
+```
+Проблема: при запуске установки apt install nginx (в составе ) в 90% случаев (закономерность пока не установлена) вылетает по причине блокировки:
+ (remote-exec): E: Could not get lock /var/lib/dpkg/lock-frontend - open (11: Resource temporarily unavailable)
+ 
+ Костыль: if [[ `ps aux | grep apt | wc -l` -gt 1 ]]; then echo "WAITING 15 sec" && sleep 15s; else echo "apt SEEMS 2B OK"; fi
+ Костылирования в таком виде хотелось бы избежать (!!!)
 
-    server {
-        listen 80;
+sudo apt install --yes nginx
+sudo mv /tmp/lb.conf /etc/nginx/conf.d/
+sudo unlink /etc/nginx/sites-enabled/default
+sudo service nginx restart
 
-        location / {
-            proxy_pass http://;
-        }
+-lb.conf
+``` 
+upstream reddit-app {
+    server 34.76.57.4:9292;
+  }
+
+  server {
+    listen 80;
+    location / {
+      proxy_pass http://reddit-app;
     }
 }
+```
+ Проблема 2: формирование списка серверов вручную некошерно, необходимо найти способ формировать список серверов пула с помощью terraform
