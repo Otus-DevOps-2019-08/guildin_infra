@@ -8,7 +8,7 @@ resource "google_compute_url_map" "default" {
   default_service = "${google_compute_backend_service.default.self_link}"
 
   host_rule {
-    hosts        = ["mysite.com"]
+    hosts        = [google_compute_instance.app.network_interface[0].access_config[0].nat_ip, google_compute_instance.app2.network_interface[0].access_config[0].nat_ip]
     path_matcher = "allpaths"
   }
 
