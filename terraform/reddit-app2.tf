@@ -15,7 +15,7 @@ resource "google_compute_instance" "app2" {
   metadata = {
     ssh-keys = "appuser:${file(var.public_key_path)} \nappuser1:${file(var.public_key_path)} \nappuser2:${file(var.public_key_path)}"
   }
-  tags = ["reddit-app2"]
+  tags = ["reddit-app"]
   network_interface {
     network = "default"
     access_config {}
