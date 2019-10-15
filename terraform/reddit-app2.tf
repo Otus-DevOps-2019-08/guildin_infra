@@ -1,6 +1,6 @@
 terraform {
   # Версия terraform Travis ругается, поэтому поставим не 0.12.10, а 0.12.8, например
-  required_version = "0.12.10"
+  required_version = "~> 0.12.8"
 }
 
 resource "google_compute_instance" "app2" {

@@ -188,3 +188,11 @@ upstream reddit-app {
 }
 ```
  Проблема 2: формирование списка серверов вручную некошерно, необходимо найти способ формировать список серверов пула с помощью terraform
+ 
+ 
+Google compute backend services
+According2:https://cloud.google.com/load-balancing/docs/backend-service
+Трафик может направляться на (ИЛИ-ИЛИ):
+-  instance group (managed | unmanaged)
+- network endpoint group (NEG)          
+The backend VMs do not need external IP addresses (проверить!)

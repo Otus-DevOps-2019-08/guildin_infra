@@ -1,12 +1,12 @@
 resource "google_compute_global_forwarding_rule" "default" {
-  name       = "global-rule"
-  project = var.project
+  name       = "global-fwd-rule"
+  project    = var.project
   target     = "${google_compute_target_http_proxy.default.self_link}"
   port_range = "80"
 }
 
 resource "google_compute_target_http_proxy" "default" {
-  name    = "test-proxy"
+  name    = "http-proxy"
   url_map = "${google_compute_url_map.default.self_link}"
 
 }
@@ -16,7 +16,7 @@ resource "google_compute_url_map" "default" {
   default_service = "${google_compute_backend_service.default.self_link}"
 
   host_rule {
-    hosts        = [google_compute_instance.app.network_interface[0].access_config[0].nat_ip, google_compute_instance.app2.network_interface[0].access_config[0].nat_ip]
+    hosts        = [ "*" ]
     path_matcher = "allpaths"
   }
 
@@ -33,83 +33,45 @@ resource "google_compute_url_map" "default" {
 }
 
 resource "google_compute_backend_service" "default" {
-  name        = "backend-service"
-  port_name   = "http"
-  protocol    = "HTTP"
-  timeout_sec = 10
-
+  name = "backend-service"
+  backend {
+    group = "${google_compute_instance_group.default.self_link}"
+  }    
   health_checks = ["${google_compute_http_health_check.default.self_link}"]
 
 }
 
 resource "google_compute_http_health_check" "default" {
-  name               = "http-health-check"
-  request_path       = "/"
-  check_interval_sec = 1
-  timeout_sec        = 1
+  name = "http-health-check"
+ 
+   port = "9292"
 }
 
-resource "google_compute_instance_group_manager" "default" {
-  name = "appserver-igm"
-  base_instance_name = "igm-basename"
-  instance_template  = "${google_compute_instance_template.default.self_link}"  
-  zone               = var.zone
 
-  target_pools = ["${google_compute_target_pool.default.self_link}"]
-  target_size  = 1
+resource "google_compute_instance_group" "default" {
+  name        = "terraform-webservers"
+  description = "Terraform test instance group"
+  zone = var.zone
+  instances = [
+    "${google_compute_instance.app.self_link}",
+    "${google_compute_instance.app2.self_link}",
+  ]
 
   named_port {
     name = "http"
-    port = 9292
+    port = "9292"
   }
+ }
 
-auto_healing_policies {
-    health_check      = "${google_compute_health_check.default.self_link}"
-    initial_delay_sec = 300
-  }
-
-}
-
-resource "google_compute_instance_template" "default" {
-  name_prefix  = "instance-template-"
-  machine_type = "f1-micro"
-  region       = var.region
-
-  disk {
-    source_image = "debian-cloud/debian-9"
-    auto_delete  = true
-    boot         = true
-  }
-
-  network_interface {
-  network = "default"
-  }
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-resource "google_compute_target_pool" "default" {
-  name = "load-balancer"
-
-  instances = [
-    "europe-west1-b/target-pool",
-  ]
-
-  health_checks = [
-    "${google_compute_http_health_check.default.name}",
-  ]
-}
 resource "google_compute_health_check" "default" {
   name                = "autohealing-health-check"
   check_interval_sec  = 5
   timeout_sec         = 5
   healthy_threshold   = 2
-  unhealthy_threshold = 10                         # 50 seconds
+  unhealthy_threshold = 10 # 50 seconds
 
   http_health_check {
     request_path = "/"
-    port         = "9292"
+    port         =  "9292"
   }
 }
