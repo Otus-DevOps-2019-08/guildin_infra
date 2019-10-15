@@ -15,23 +15,14 @@ variable disk_image {
 }
 variable private_key_path {
   # Описание переменной
-  description = "Path to the public key used for ssh access"
+  description = "Path to the private key used for ssh access"
 }
 variable zone {
   description = "zone to deploy in"
   # Значение по умолчанию
   default = "europe-west1-b"
 }
-variable another_user {
-  description = "appuser for *-task 1"
-  default     = "appuser1"
+variable vmcount {
+  description = "Number of instances"
+  default     = "1"
 }
-variable another_pubkey {
-  description = "appuser for *-task 1"
-  default     = "~/.ssh/appuser1.pub"
-}
-variable another_privkey {
-  description = "appuser for *-task 1"
-  default     = "~/.ssh/appuser1"
-}
-

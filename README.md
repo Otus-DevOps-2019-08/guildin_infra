@@ -136,63 +136,241 @@ gcloud auth application-default login
 # Terraform
 
 ##Базовое задание
+- Установлен terraform версии 0.12.10
+- создан main.tf
+- содержимое .gitignore:
+```
+*.tfstate
+*.tfstate.*.backup
+*.tfstate.backup
+*.tfvars
+.terraform/
+```
+- в main.tf заявлен провайдер google версии 2.15, при инициализации (terraform init)
+- в main.tf заявлен экземпляр ВМ на базе созданного ранее образа reddit-base
+```
+resource "google_compute_instance" "app" {
+  name = "reddit-app"
+  machine_type = "f1-micro"
+  zone = "europe-west1-b"
+  boot_disk {
+    initialize_params {
+      image = "reddit-base"
+    }
+  }
+  
+  network_interface {
+    network = "default"
+    access_config {}
+  }
+}                    
+```
+- Изучен вывод terraform plan, создана ВМ через terraform apply (-auto-approve использовать не стал, не стоит привыкать)
+- Изучен файл terraform.tfstate, выведены данные через terraform show | grep ...
+- ssh appuser@nat_ip (fail)
+```
+  metadata = {
+    ssh-keys = "appuser:${file(~/.ssh/appuser.pub)"
+  }
+```
+- terraform plan && terraform apply
+- ssh -i ~/.ssh/appuser appuser@nat_ip (OK)
+- создан файл для outputs переменных
+```
+output "app_external_ip" {
+  value = google_compute_instance.app.network_interface[0].access_config[0].nat_ip
+}
+```
+-  добавлено правило брандмауэра:
+```
+resource "google_compute_firewall" "firewall_puma" {
+  name = "allow-puma-default"
+  network = "default"
+  allow {
+    protocol = "tcp"
+    ports = ["9292"]
+  }
+  source_ranges = ["0.0.0.0/0"]
+  target_tags = ["reddit-app"]
+}
+```
+- ...и применено к ВМ: 
+resource "google_compute_instance" "app" {
 ...
+tags = ["reddit-app"]
 ...
+}
+- с помощью провиженера file описан файл для передачи на ВМ:
+```
+provisioner "file" {
+source = "files/puma.service"
+destination = "/tmp/puma.service"
+}
+```
+(вообще это делалось на предыдущей практике, но сделать еще раз несложно)
+- mkdir files && vim files\puma.service:
+```
+[Unit]
+Description=Puma HTTP Server
+After=network.target
+
+[Service]
+Type=simple
+User=appuser
+WorkingDirectory=/home/appuser/reddit
+ExecStart=/bin/bash -lc 'puma'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+- Создан files/deploy.sh
+```
+#!/bin/bash
+set -e
+APP_DIR=${1:-$HOME}
+git clone -b monolith https://github.com/express42/reddit.git $APP_DIR/reddit
+cd $APP_DIR/reddit
+bundle install
+sudo mv /tmp/puma.service /etc/systemd/system/puma.service
+sudo systemctl start puma
+sudo systemctl enable puma
+```
+- Добавлен соответствующий провиженер
+```
+provisioner "remote-exec" {
+script = "files/deploy.sh"
+}
+```
+- для подключения провиженера к ВМ при развертывании добавлены параметы подключения:
+```
+resource "google_compute_instance" "app" {
+...
+connection {
+type = "ssh"
+host = self.network_interface[0].access_config[0].nat_ip
+user = "appuser"
+agent = false
+# путь до приватного ключа
+private_key = file("~/.ssh/appuser")
+}
+...
+}
+
+```
+- terraform taint google_compute_instance.app && terraform plan && terraform apply
+- проведена проверка работоспособности приложения на ВМ
+- В файл variables.tf вынесен ряд параметров
+(пример)
+```
+variable region {
+  description = "Region"
+  # Значение по умолчанию
+  default = "europe-west1"
+}
+```
+- Переменные могут иметь дефолтное значение, или не иметь. Тогда перечисляем необходимые значения в файле terraform.tfvars
+```
+project          = "infra-xxxxxx"
+public_key_path  = "~/.ssh/appuser.pub"
+private_key_path = "~/.ssh/appuser"
+disk_image       = "reddit-base"
+```
+- terraform destroy && terraform plan && terraform apply
+OK.
+
+##Самостоятельное задание
+- Определите input переменную для приватного ключа, использующегося в определении подключения для провижинеров (connection);
+variables.tf:
+...
+variable private_key_path {
+  description = "Path to the private key used for ssh access"
+}
+...
+terraform.tfvars:
+...
+private_key_path = "~/.ssh/appuser"
+...
+- Определите input переменную для задания зоны в ресурсе "google_compute_instance" "app". У нее должно быть значение по умолчанию;
+variables.tf:
+...
+variable zone {
+  description = "zone to deploy in"
+  # Значение по умолчанию
+  default = "europe-west1-b"
+}
+...
+- Форматирование файлов конфигурации: terraform fmt - OK
+- В terraform.tfvars.example указаны переменные для образца  
 
 ##Задание со *
-
-- Добавлен ssh ключ [appuser_web] в консоли CGP, осуществлен вход через него (проверка), запущен terraform apply:
+###1
+- Опишите в коде терраформа добавление ssh ключа пользователя appuser1 в метаданные проекта. Выполните terraform apply и проверьте результат (публичный ключ можно брать пользователя appuser)
+```
+  metadata = {
+    ssh-keys = "appuser1:${file(var.public_key_path)}"
+  }
+```
+- Опишите в коде терраформа добавление ssh ключей нескольких пользователей в метаданные проекта (можно просто один и тот же публичный ключ, но с разными именами пользователей, например appuser1, appuser2 и т.д.). Выполните terraform apply и проверьте результат
+```
+  metadata = {
+    ssh-keys = "appuser:${file(var.public_key_path)} \nappuser1:${file(var.public_key_path)} \nappuser2:${file(var.public_key_path)}"
+  }
+```
+###2
+- Добавлен ssh ключ [appuser_web] в консоли CGP, осуществлен вход через ssh, запущен terraform apply:
 google_compute_firewall.firewall_puma: Refreshing state... [id=allow-puma-default]
 google_compute_instance.app: Refreshing state... [id=reddit-app]
-
 Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
-
 Outputs:
-
-app_external_ip = 35.205.188.45
-
-Отсутствие реакции озадачивает. 
+app_external_ip = ...
+terraform никак не реагирует на появление нового ключа.  
 
 ##Задание с **
 ###Балансировщик
-Создан файл lb.tf, описан манифест ВМ. 
+- Создан файл lb.tf (изначально описал ВМ с балансировщиком на nginx > позднее переименовал его в lb.tf-nginx)
+- В lb.tf описаны ресурсы, формирующие инфраструктуру балансировщика google
+- Проведена проверка.
+- добавлен код reddit-app2 (файл reddit-app2.tf), машина добавлена в группу:
 ```
-#!/bin/bash
-sudo apt install --yes nginx
-sudo mv /tmp/lb.conf /etc/nginx/conf.d/balancer
-sudo echo "include conf.d/balancer;" >> /etc/nginx/nginx.conf
-sudo service nginx restart
+lb.tf
+resource "google_compute_instance_group" "default" {
+...
+  instances = [
+    ...
+    "${google_compute_instance.app2.self_link}",
+  ]
+...
+ }
 ```
-Проблема: при запуске установки apt install nginx (в составе ) в 90% случаев (закономерность пока не установлена) вылетает по причине блокировки:
- (remote-exec): E: Could not get lock /var/lib/dpkg/lock-frontend - open (11: Resource temporarily unavailable)
- 
- Костыль: if [[ `ps aux | grep apt | wc -l` -gt 1 ]]; then echo "WAITING 15 sec" && sleep 15s; else echo "apt SEEMS 2B OK"; fi
- Костылирования в таком виде хотелось бы избежать (!!!)
+- Проведена проверка балансировщика. Полный destroy && apply && http
 
-sudo apt install --yes nginx
-sudo mv /tmp/lb.conf /etc/nginx/conf.d/
-sudo unlink /etc/nginx/sites-enabled/default
-sudo service nginx restart
-
--lb.conf
-``` 
-upstream reddit-app {
-    server 34.76.57.4:9292;
-  }
-
-  server {
-    listen 80;
-    location / {
-      proxy_pass http://reddit-app;
-    }
+### VM count
+- файл reddit-app2.tf > reddit-app2.tf-history 
+- в main.tf в описание ВМ:
+```
+name = "reddit-app-${count.index + 1}"
+count        = var.vmcount
+```
+- В variables.tf:
+```
+variable vmcount {
+  description = "Number of instances"
+  default     = "1"
 }
 ```
- Проблема 2: формирование списка серверов вручную некошерно, необходимо найти способ формировать список серверов пула с помощью terraform
- 
- 
-Google compute backend services
-According2:https://cloud.google.com/load-balancing/docs/backend-service
-Трафик может направляться на (ИЛИ-ИЛИ):
--  instance group (managed | unmanaged)
-- network endpoint group (NEG)          
-The backend VMs do not need external IP addresses (проверить!)
+- validate && plan && apply
+Создана инфраструктура с 1 ВМ в группе. А, точно! В lb.tf:
+```
+resource "google_compute_instance_group" "default" {
+...
+  instances   = "${google_compute_instance.app[*].self_link}"
+...
+}
+```
+- Теперь добавим еще инстанс поверх. В terraform.tfvars изменим дефолтный var.vmcount:
+```
+vmcount          = "2"
+```
+- validate && plan && apply - OK. Развернуты 2 экземпляра.
+

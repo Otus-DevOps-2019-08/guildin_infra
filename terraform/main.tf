@@ -12,7 +12,8 @@ provider "google" {
   region  = var.region
 }
 resource "google_compute_instance" "app" {
-  name         = "reddit-app"
+  name         = "reddit-app-${count.index + 1}"
+  count        = var.vmcount
   machine_type = "f1-micro"
   zone         = var.zone
   boot_disk {
@@ -58,4 +59,3 @@ resource "google_compute_firewall" "firewall_puma" {
   # Правило применимо для инстансов с перечисленными тэгами
   target_tags = ["reddit-app"]
 }
-
