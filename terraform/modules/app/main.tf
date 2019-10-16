@@ -1,10 +1,6 @@
-terraform {
-  # Версия terraform
-  required_version = "~> 0.12.8"
-}
 resource "google_compute_instance" "app" {
   name = "reddit-app"
-  machine_type = "g1-small"
+  machine_type = "f1-micro"
   zone = var.zone
   tags = ["reddit-app"]
   boot_disk {
