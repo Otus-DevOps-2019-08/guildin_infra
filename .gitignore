@@ -1,4 +1,5 @@
 packer/variables.json
+packer/variables.tf2lab.json
 *.tfstate
 *.tfstate.*.backup
 *.tfstate.backup
