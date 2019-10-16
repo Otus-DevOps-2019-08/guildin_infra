@@ -1,0 +1,11 @@
+{
+    "project_id": "infra-253310",
+    "image_name": "reddit-full-0410",
+    "image_family": "reddit-full",
+    "source_image_family": "ubuntu-1604-lts",
+    "ssh_username": "atikhonov.gcp",
+    "machine_type": "f1-micro",
+    "disk_size": "10",
+    "disk_type": "pd-standard",
+    "tags": "puma-server"
+}
