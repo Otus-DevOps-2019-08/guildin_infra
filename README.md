@@ -374,3 +374,63 @@ vmcount          = "2"
 ```
 - validate && plan && apply - OK. Развернуты 2 экземпляра.
 
+
+
+#terraform-2
+
+
+...
+
+
+## *
+### Хранение стейт файла в удаленном бекенде для окружений stage и prod
+Google Cloud Storage в качестве бекенда. 
+
+- Инициализация бакета: Файл storage-bucket.tf
+```
+module "storage-bucket" {
+  source  = "SweetOps/storage-bucket/google"
+  version = "0.3.0"
+
+  # Имя поменяйте на другое
+  name = "backet00"
+  namespace   = "eu"
+  stage = "test"
+  storage_class      = "NEARLINE"
+  project = var.project
+  location      = var.region
+
+}
+
+output storage-bucket_url {
+  value = module.storage-bucket.url
+}
+```
+- terraform init && terraform plan && terraform apply
+- Описание бекенда нужно вынести в отдельный файл backend.tf (по файлу в каждое окружение):
+```
+terraform {
+  backend "gcs" {
+    bucket  = "eu-test-backet00"
+    prefix  = "terraform/<ENV>" # (stage | prod)
+  }
+} 
+```
+- terraform init && terraform plan && terraform apply # для каждого окружения. terraform destroy, конечно
+
+###2. 
+Перенесите конфигурационные файлы Terraform в другую директорию (вне репозитория). Проверьте, что state-файл
+(terraform.tfstate) отсутствует. Запустите Terraform в обеих директориях и проконтролируйте, что он "видит" текущее
+состояние независимо от директории, в которой запускается
+- Без backend.tf терраформ состояние не показывает.  Отсутствие же прочих *.tf его не смущает. Файл .tfstate успешно создался в бакете. В обоих окружениях.
+
+###3. 
+Попробуйте запустить применение конфигурации одновременно, чтобы проверить работу блокировок
+```
+Error: Error creating Address: googleapi: Error 409: The resource 'projects/infra-253310/regions/europe-west1/addresses/reddit-app-ip' already exists, alreadyExists
+  on ..\modules\app\main.tf line 19, in resource "google_compute_address" "app_ip":
+  19: resource "google_compute_address" "app_ip" {
+Error: Error creating instance: googleapi: Error 409: The resource 'projects/infra-253310/zones/europe-west1-b/instances/reddit-db' already exists, alreadyExists
+  on ..\modules\db\main.tf line 1, in resource "google_compute_instance" "db":
+   1: resource "google_compute_instance" "db" {
+```

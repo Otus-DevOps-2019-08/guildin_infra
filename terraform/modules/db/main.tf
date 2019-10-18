@@ -17,13 +17,3 @@ resource "google_compute_instance" "db" {
   }
  }
 
-resource "google_compute_firewall" "firewall_mongo" {
-  name = "allow-mongo-default"
-  network = "default"
-  allow {
-    protocol = "tcp"
-    ports = ["27017"]
-  }
-  target_tags = ["reddit-db"]
-  source_tags = ["reddit-app"]
-}
