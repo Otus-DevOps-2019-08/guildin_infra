@@ -15,6 +15,16 @@ resource "google_compute_instance" "app" {
   metadata = {
     ssh-keys = "appuser:${file(var.public_key_path)}"
   }
+  connection {
+    type        = "ssh"
+    user        = "appuser"
+    agent       = false
+    private_key = "${file("~/.ssh/appuser")}"
+  }
+
+  provisioner "remote-exec" {
+script = "../stage/files/connect_mongo.sh ${join(" ", module.db.db_internal_ip)}"
+  }
 }
 resource "google_compute_address" "app_ip" { 
   name = "reddit-app-ip" 

@@ -16,4 +16,8 @@ resource "google_compute_instance" "db" {
     ssh-keys = "appuser:${file(var.public_key_path)}"
   }
  }
-
+resource "google_compute_address" "db_internal_ip" {
+  name         = "db-internal-ip"
+  address_type = "INTERNAL"
+  purpose      = "GCE_ENDPOINT"
+}
