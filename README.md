@@ -1,11 +1,17 @@
 # guildin_infra
 guildin Infra repository
 
+# Бортовой журнал. 
+# Содержание
 --- | --- | --- | --- |
+[Terraform-1](#terraform-1) | Базовое задание | * | **  |
 --- | --- | --- | --- |
-Terraform-1 | Базовое задание | * | **  |
-Terraform-2 | Базовое задание | * | **  |
-
+[Terraform-2](#terraform-2) | Базовое задание | [TF2. Самостоятельное задание](#tf2-самостоятельное задание) | 
+ [TF2 Задание ЖЖ](#tf2-задание-жж)   |
+--- | --- | --- | --- |
+[link](anchor) | [link](anchor) | [link](anchor) | [link](anchor) | 
+--- | --- | --- | --- |
+[link](anchor) | [link](anchor) | [link](anchor) | [link](anchor) | 
 
 #Исследовать способ подключения к someinternalhost в одну
 #команду из вашего рабочего устройства, проверить
@@ -14,7 +20,7 @@ Terraform-2 | Базовое задание | * | **  |
 ssh -i ~/.ssh/gcp_id.rsa -A -J atikhonov.gcp@34.76.12.102 atikhonov.gcp@10.132.0.3
 
 #Дополнительное задание:
-Предложить вариант решения для подключения из консоли при
+Предложить вариант решения для подключения из консо2ли при
 помощи команды вида ssh someinternalhost из локальной
 консоли рабочего устройства, чтобы подключение выполнялось по
 алиасу someinternalhost
@@ -139,7 +145,7 @@ gcloud auth application-default login
 
 
 
-# Terraform
+# Terraform 1
 
 ##Базовое задание
 - Установлен terraform версии 0.12.10
@@ -404,7 +410,7 @@ resource "google_compute_firewall" "firewall_ssh" {
 terraform import google_compute_firewall.firewall_ssh default-allow-ssh
 ```
 
-##Взаимосвязи ресурсов. Часть 1. IP адрес
+##TF2. Взаимосвязи ресурсов. Часть 1. IP адрес
 - Создадим статический адрес. В main.tf:
 ```
 resource "google_compute_address" "app_ip" {
@@ -415,7 +421,6 @@ GCP по умолчанию дает нам создать только один
 - После указания нового ресурса они начнут создаваться параллельно. 
 - Сошлемся на новый статический адрес в ВМ app:
 ```
-...
 network_interface {
  network = "default"
  access_config {
@@ -423,8 +428,8 @@ network_interface {
  }
 }
 ...
-
--Пересоздадим ресурсы и убедимся, что ВМ app начинает создаваться только после создания ресурса google_compute_address app_ip
+```
+  * Пересоздадим ресурсы и убедимся, что ВМ app начинает создаваться только после создания ресурса _google_compute_address app_ip_
 
 ##Несколько ВМ -> модули
 - Создадим в ../packer шаблоны app.json и db.json
@@ -468,7 +473,7 @@ app.json
     ]
 }
 ```
-db.json:
+Файл db.json:
 ```
 {
     "builders": [
@@ -496,12 +501,11 @@ db.json:
     ]
 }
 ```
-Мы не стали пренебрегать провиженерами. Во-первых это несложно, во-вторых инфраструктура будет взлетать существенно быстрее, а когда делаешь apply | destroy | apply многократно, это существенно экономит время.
+...Мы не стали пренебрегать провиженерами. Во-первых это несложно, во-вторых инфраструктура будет взлетать существенно быстрее, а когда делаешь apply | destroy | apply многократно, это существенно экономит время.
 
 - Опишем конфигурации ВМ в терраформе:
-####APP
+  * APP
 ```
-# Собственно ВМ
 resource "google_compute_instance" "app" {
   name = "reddit-app"
   machine_type = "f1-micro"  # а не g1-small ))
@@ -521,7 +525,6 @@ resource "google_compute_instance" "app" {
   }
 }
 
-# и его брандмауэр
 resource "google_compute_address" "app_ip" { 
   name = "reddit-app-ip" 
 }
@@ -539,7 +542,7 @@ resource "google_compute_firewall" "firewall_puma" {
 ```
 
 
-####DB
+  * DB
 ```
 resource "google_compute_instance" "db" {
   name = "reddit-db"
@@ -571,7 +574,7 @@ resource "google_compute_instance" "db" {
   source_tags = ["reddit-app"]
 }
 ```
-- Не забудем указать переменные с именами образов в variables.tf
+  * Не забудем указать переменные с именами образов в variables.tf
 ```
 variable app_disk_image {
   description = "Disk image for reddit app"
@@ -583,8 +586,8 @@ variable db_disk_image {
 }
 
 ```
-- Вынесем правила файерфвола в отдельный файл vpc.tf и переместим правила брандмауэра туда
-- В main.tf осталось немного:
+  * Вынесем правила файерфвола в отдельный файл vpc.tf и переместим правила брандмауэра туда
+  * В main.tf осталось немного:
 ```
 provider "google" {
   version = "2.15"
@@ -600,34 +603,34 @@ mkdir modules/app
 mkdir modules/db
 mkdir modules/vpc
 ```
-- Перенесем туда уже выделенные экземпляры:
+  * Перенесем туда уже выделенные экземпляры:
 ```
 mv app.tf modules/app
 mv db.tf modules/db
 mv vpc.tf modules/vpc
 ```
 
-- Используемые в экземплярах переменные рассуем по файлам variables.tf 
-- И outputs:
+  * Используемые в экземплярах переменные рассуем по файлам variables.tf 
+  * И outputs:
 ```
-# ../modules/app/main.tf
+# ../modules/app/outputs.tf
 output "app_external_ip" {
   value = google_compute_instance.app.network_interface.0.access_config.0.assigned_nat_ip
 }
 
 ...
 
-# ../modules/db/main.tf
+# ../modules/db/outputs.tf
 output "internal_ip" {
   value = google_compute_instance.db[*].network_interface[0].network_ip
 }
 
 ```
-- Аналогично создаем модуль vpc в ../modules/vpc/main.tf	
-- Создадим инфраструктуру и проверим запуск ВМ
+  * Аналогично создаем модуль vpc в ../modules/vpc/main.tf	
+  * Создадим инфраструктуру и проверим запуск ВМ
 
-##Самостоятельное задание
-- Внесем в модуль vpc изменения:
+##TF2. Самостоятельное задание
+  * Внесем в модуль vpc изменения:
 ```
 module "vpc" {
   source = "modules/vpc"
@@ -693,8 +696,8 @@ output storage-bucket_url {
   value = module.storage-bucket.url
 }
 ```
-- terraform init && terraform plan && terraform apply
-- Описание бекенда нужно вынести в отдельный файл backend.tf (по файлу в каждое окружение):
+  * terraform init && terraform plan && terraform apply
+  * Описание бекенда нужно вынести в отдельный файл backend.tf (по файлу в каждое окружение):
 ```
 terraform {
   backend "gcs" {
@@ -703,7 +706,7 @@ terraform {
   }
 } 
 ```
-- terraform init && terraform plan && terraform apply # для каждого окружения. terraform destroy, конечно
+  * _terraform init && terraform plan && terraform apply_ # для каждого окружения. _terraform destroy_, конечно
 
 ###2. 
 Перенесите конфигурационные файлы Terraform в другую директорию (вне репозитория). Проверьте, что state-файл
@@ -722,12 +725,12 @@ Error: Error creating instance: googleapi: Error 409: The resource 'projects/inf
    1: resource "google_compute_instance" "db" {
 ```
 
-## TF-2 **
+## TF2 Задание ЖЖ 
 В процессе выполнения предыдущих задач были выпечены (слава пакеру!) образы reddit-app-base и reddit-db-base.
 Это существенно ускорило работу terraform apply
 Однако ссылки на базы данных у сервера приложения нет, да и конфигурация самой базы данных - в умолчальном состоянии.
 Поэтому работа провижинеров призвана обеспечить необходимые изменения:
-- Для начала, app-экземпляру необходимо узнать адрес db-экземпляра. Как мы помним, конфигуация файервола для db-экземляра разрешает трафик тегированных reddit-app ВМ (не нат!) на reddit-db ВМ.
+  * Для начала, app-экземпляру необходимо узнать адрес db-экземпляра. Как мы помним, конфигуация файервола для db-экземляра разрешает трафик тегированных reddit-app ВМ (не нат!) на reddit-db ВМ.
 ```
 resource "google_compute_firewall" "firewall_mongo" {
   name    = "allow-mongo-default"
@@ -741,10 +744,11 @@ resource "google_compute_firewall" "firewall_mongo" {
 }
 ```
 Для этого положим его в output переменную ../modules/db/outputs.tf:
+```
 output "internal_ip" {
   value = google_compute_instance.db[*].network_interface[0].network_ip
 }
-
+```
 ...И сделаем ссылку в материнской конфигурации outputs.tf:
 ```
 output "db_addr" {
@@ -758,7 +762,7 @@ module "app" {
   db_addr         = module.db.internal_ip
 }
 ```
-- Теперь нам необходимы провижинеры:
+  * Теперь нам необходимы провижинеры:
 Для app:
 ```
 resource "null_resource" "post-install" {
@@ -791,7 +795,7 @@ resource "null_resource" "post-install" {
     ]
   }
 ```
-- NB! В данном случае нам не понадобилось размещение в директориях модулей каких-либо файлов, но если такая необходимость возникнет, то путь к ним начинается c ${path.module}
-- NB! Выведение провиженера в нуль-ресурс - очень важный архитектурный момент, если что-то  в процессе идет не так, то taint и пересоздание происходит нуль-ресурса, а не экземпляра ВМ
+  * NB! В данном случае нам не понадобилось размещение в директориях модулей каких-либо файлов, но если такая необходимость возникнет, то путь к ним начинается c ${path.module}
+  * NB! Выведение провиженера в нуль-ресурс - очень важный архитектурный момент, если что-то  в процессе идет не так, то taint и пересоздание происходит нуль-ресурса, а не экземпляра ВМ
 
 
