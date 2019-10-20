@@ -377,14 +377,295 @@ vmcount          = "2"
 
 
 #terraform-2
+##Управление файерволом
+- Удалим правило, разрешающее ssh по умолчанию, и создадим свое:
+```
+resource "google_compute_firewall" "firewall_ssh" {
+  name = "default-allow-ssh"
+  network = "default"
 
+  allow {
+    protocol = "tcp"
+    ports = ["22"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+}
+```
+- Применим изменения (terraform apply). Ошибки не будет, потому что мы уже удалили дефолтное правило. Да, я немного забежал вперед.
+- Мы также можем скормить терраформу информацию о том или ином имеющемся правиле, сгенерированном не через TF
+```
+terraform import google_compute_firewall.firewall_ssh default-allow-ssh
+```
+
+##Взаимосвязи ресурсов. Часть 1. IP адрес
+- Создадим статический адрес. В main.tf:
+```
+resource "google_compute_address" "app_ip" {
+  name = "reddit-app-ip"
+}
+```
+GCP по умолчанию дает нам создать только один адрес, поэтому если у нас уже есть таковой (VPC Network -> external ip addresses), от него придется избавиться. Или перейдти на другой план ;)
+- После указания нового ресурса они начнут создаваться параллельно. 
+- Сошлемся на новый статический адрес в ВМ app:
+```
+...
+network_interface {
+ network = "default"
+ access_config {
+   nat_ip = google_compute_address.app_ip.address
+ }
+}
+...
+
+-Пересоздадим ресурсы и убедимся, что ВМ app начинает создаваться только после создания ресурса google_compute_address app_ip
+
+##Несколько ВМ -> модули
+- Создадим в ../packer шаблоны app.json и db.json
+- Опишем в них установку соотвественно ruby и mongoDB
+app.json
+```
+{
+    "builders": [
+        {
+            "type": "googlecompute",
+            "project_id": "{{user `project_id`}}",
+            "image_name": "reddit-app-base",                          # Образ APP
+            "image_family": "reddit-base",
+            "source_image_family": "{{user `source_image_family`}}",
+            "zone": "europe-west1-b",
+            "ssh_username": "{{user `ssh_username`}}",
+            "machine_type": "{{user `machine_type`}}",
+            "image_description": "REDDIT APP",
+            "disk_size":"{{user `disk_size`}}",
+            "disk_type":"{{user `disk_type`}}",
+            "network":"{{user `network`}}",
+            "tags":"{{user `tags`}}"
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "shell",
+            "script": "scripts/install_ruby.sh",
+            "execute_command": "sudo {{.Path}}"
+        },
+        {
+            "type": "file",
+            "source": "files/puma.service",
+            "destination": "/tmp/puma.service"
+        },
+        {
+            "type": "shell",
+            "script": "files/deploy.sh",
+            "execute_command": "sudo {{.Path}}"
+        }
+    ]
+}
+```
+db.json:
+```
+{
+    "builders": [
+        {
+            "type": "googlecompute",
+            "project_id": "{{user `project_id`}}",
+            "image_name": "reddit-db-base",i                           # Образ DB
+            "image_family": "reddit-base",
+            "source_image_family": "{{user `source_image_family`}}",
+            "zone": "europe-west1-b",
+            "ssh_username": "{{user `ssh_username`}}",
+            "machine_type": "{{user `machine_type`}}",
+            "image_description": "{{user `image_description`}}",
+            "disk_size":"{{user `disk_size`}}",
+            "disk_type":"{{user `disk_type`}}",
+            "network":"{{user `network`}}"
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "shell",
+            "script": "scripts/install_mongodb.sh",
+            "execute_command": "sudo {{.Path}}"
+        }
+    ]
+}
+```
+Мы не стали пренебрегать провиженерами. Во-первых это несложно, во-вторых инфраструктура будет взлетать существенно быстрее, а когда делаешь apply | destroy | apply многократно, это существенно экономит время.
+
+- Опишем конфигурации ВМ в терраформе:
+####APP
+```
+# Собственно ВМ
+resource "google_compute_instance" "app" {
+  name = "reddit-app"
+  machine_type = "f1-micro"  # а не g1-small ))
+  zone = var.zone
+  tags = ["reddit-app"]
+  boot_disk {
+    initialize_params { image = var.app_disk_image }
+  }
+  network_interface {
+    network = "default"
+    access_config {
+      nat_ip = google_compute_address.app_ip.address
+    }
+  }
+  metadata {
+    ssh-keys = "appuser:${file(var.public_key_path)}"
+  }
+}
+
+# и его брандмауэр
+resource "google_compute_address" "app_ip" { 
+  name = "reddit-app-ip" 
+}
+
+resource "google_compute_firewall" "firewall_puma" {
+  name = "allow-puma-default"
+  network = "default"
+  allow {
+    protocol = "tcp", ports = ["9292"]
+  }
+  source_ranges = ["0.0.0.0/0"]
+  target_tags = ["reddit-app"]
+}
+
+```
+
+
+####DB
+```
+resource "google_compute_instance" "db" {
+  name = "reddit-db"
+  machine_type = "g1-small"
+  zone = var.zone
+    tags = ["reddit-db"]
+    boot_disk {
+    initialize_params {
+      image = var.db_disk_image
+    }
+  }
+  network_interface {
+    network = "default"
+    access_config = {}
+  }
+  metadata {
+    ssh-keys = "appuser:${file(var.public_key_path)}"
+  }
+ }
+
+ resource "google_compute_firewall" "firewall_mongo" {
+  name = "allow-mongo-default"
+  network = "default"
+  allow {
+    protocol = "tcp"
+    ports = ["27017"]
+  }
+  target_tags = ["reddit-db"]
+  source_tags = ["reddit-app"]
+}
+```
+- Не забудем указать переменные с именами образов в variables.tf
+```
+variable app_disk_image {
+  description = "Disk image for reddit app"
+  default = "reddit-app-base"
+}
+variable db_disk_image {
+  description = "Disk image for reddit db"
+  default = "reddit-db-base"
+}
+
+```
+- Вынесем правила файерфвола в отдельный файл vpc.tf и переместим правила брандмауэра туда
+- В main.tf осталось немного:
+```
+provider "google" {
+  version = "2.15"
+  project = var.project
+  region  = var.region
+}
+```
+##Модули
+- Создадим каталог modules и подкаталоги экземпляров
+```
+mkdir modules
+mkdir modules/app
+mkdir modules/db
+mkdir modules/vpc
+```
+- Перенесем туда уже выделенные экземпляры:
+```
+mv app.tf modules/app
+mv db.tf modules/db
+mv vpc.tf modules/vpc
+```
+
+- Используемые в экземплярах переменные рассуем по файлам variables.tf 
+- И outputs:
+```
+# ../modules/app/main.tf
+output "app_external_ip" {
+  value = google_compute_instance.app.network_interface.0.access_config.0.assigned_nat_ip
+}
 
 ...
 
+# ../modules/db/main.tf
+output "internal_ip" {
+  value = google_compute_instance.db[*].network_interface[0].network_ip
+}
+
+```
+- Аналогично создаем модуль vpc в ../modules/vpc/main.tf	
+- Создадим инфраструктуру и проверим запуск ВМ
+
+##Самостоятельное задание
+- Внесем в модуль vpc изменения:
+```
+module "vpc" {
+  source = "modules/vpc"
+  source_ranges = ["8.8.8.8/32"]
+}
+```
+- Применим изменения. Попробуем зашеллиться в созданную вм, ничего не сможем...
+- поменяем 8.8.8.8 на свой ip и, после примения изменений зашеллимся успешно.
+- ...Работает. Вернем 0.0.0.0/0
+
+##Переиспользование модулей
+- Создадим каталоги stage и prod
+- Скопируем в них файлы main.tf, variables.tf, outputs.tf, terraform.tfvars
+- Не забудем поменять пути к модулям на валидные:
+```
+module "app" {
+  source          = "../modules/app"
+  public_key_path = var.public_key_path
+  zone            = var.zone
+  app_disk_image  = var.app_disk_image
+}
+
+module "db" {
+  source          = "../modules/db"
+  public_key_path = var.public_key_path
+  zone            = var.zone
+  db_disk_image   = var.db_disk_image
+}
+
+module "vpc" {
+  source        = "../modules/vpc"
+  source_ranges = ["0.0.0.0/0"]
+}
+
+```
+### Модули. Самостоятельное задание
+- Удалим старые файлы конфигурации из корневой папки
+- Поменяем конфигурацию модулей, добавляя / удаляя переменные, указывая их в конфигурации
+- Отформатируем файлы terraform fmt
 
 ## *
 ### Хранение стейт файла в удаленном бекенде для окружений stage и prod
 Google Cloud Storage в качестве бекенда. 
+Референс здесь: https://registry.terraform.io/modules/SweetOps/storage-bucket/google/0.3.0
 
 - Инициализация бакета: Файл storage-bucket.tf
 ```
@@ -393,10 +674,10 @@ module "storage-bucket" {
   version = "0.3.0"
 
   # Имя поменяйте на другое
-  name = "backet00"
-  namespace   = "eu"
-  stage = "test"
-  storage_class      = "NEARLINE"
+  name = "backet00"                    #можно сказать, имя собственное
+  namespace   = "eu"                   #Тут я не совсем разобрался, можно ли указывать что угодно, похоже на геозону
+  stage = "test"                       # А вот это похоже mandatory: 'prod', 'staging', 'dev' или 'source', 'build', 'test', 'deploy', 'release'
+  storage_class      = "NEARLINE"      #MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE. Что бы это значило
   project = var.project
   location      = var.region
 
@@ -434,3 +715,77 @@ Error: Error creating instance: googleapi: Error 409: The resource 'projects/inf
   on ..\modules\db\main.tf line 1, in resource "google_compute_instance" "db":
    1: resource "google_compute_instance" "db" {
 ```
+
+## TF-2 **
+В процессе выполнения предыдущих задач были выпечены (слава пакеру!) образы reddit-app-base и reddit-db-base.
+Это существенно ускорило работу terraform apply
+Однако ссылки на базы данных у сервера приложения нет, да и конфигурация самой базы данных - в умолчальном состоянии.
+Поэтому работа провижинеров призвана обеспечить необходимые изменения:
+- Для начала, app-экземпляру необходимо узнать адрес db-экземпляра. Как мы помним, конфигуация файервола для db-экземляра разрешает трафик тегированных reddit-app ВМ (не нат!) на reddit-db ВМ.
+```
+resource "google_compute_firewall" "firewall_mongo" {
+  name    = "allow-mongo-default"
+  network = "default"
+  allow {
+    protocol = "tcp"
+    ports    = ["27017"]
+  }
+  target_tags = ["reddit-db"] # - правило применяется к ВМ тегированным указанным тегом
+  source_tags = ["reddit-app"] # - разрешается трафик с внутренних интерфейсов машин с указанным тегом. Логично.
+}
+```
+Для этого положим его в output переменную ../modules/db/outputs.tf:
+output "internal_ip" {
+  value = google_compute_instance.db[*].network_interface[0].network_ip
+}
+
+...И сделаем ссылку в материнской конфигурации outputs.tf:
+```
+output "db_addr" {
+  value = module.db.internal_ip
+}
+```
+Наконец, упомянем его в конфигурации модуля app в материнской конфигурации:
+```
+module "app" {
+...
+  db_addr         = module.db.internal_ip
+}
+```
+- Теперь нам необходимы провижинеры:
+Для app:
+```
+resource "null_resource" "post-install" {
+  connection {
+    type        = "ssh"
+    host        = google_compute_address.app_ip.address
+    user        = "appuser"
+    agent       = false
+    private_key = file(var.private_key_path)
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo echo DATABASE_URL=${var.db_addr.0} > /tmp/grab.env",                                   #  Вот он, вон он адрес СУБД, положим его куда попало
+      "sudo sed -i '/Service/a EnvironmentFile=/tmp/grab.env' /etc/systemd/system/puma.service",   #  ...и сошлемся на это самое куда попало в юнит файле,
+      "sudo systemctl daemon-reload",                                                              #  ...расскажем об этом systemd
+      "sudo service puma restart",                                                                 #  перезагрузим сервис для применения новых настроек.
+    ]
+  }
+
+```
+
+Для db
+```
+... # опустим описание нуль-ресурса post-install
+  provisioner "remote-exec" {
+    inline = [
+      "sudo sed -i 's/127.0.0.1/0.0.0.0/g' /etc/mongod.conf",   # Тут все проще. Заменим петлевой адрес на любой имеющийся (0.0.0.0) (Bind IP) 
+      "sudo service mongod restart",                            # и рестартуем службу.
+    ]
+  }
+```
+- NB! В данном случае нам не понадобилось размещение в директориях модулей каких-либо файлов, но если такая необходимость возникнет, то путь к ним начинается c ${path.module}
+- NB! Выведение провиженера в нуль-ресурс - очень важный архитектурный момент, если что-то  в процессе идет не так, то taint и пересоздание происходит нуль-ресурса, а не экземпляра ВМ
+
+
