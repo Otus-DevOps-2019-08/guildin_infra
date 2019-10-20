@@ -1,4 +1,11 @@
 # guildin_infra
+
+--- | --- | --- | --- |
+--- | --- | --- | --- |
+Terraform-1 | Базовое задание | * | **  |
+Terraform-2 | Базовое задание | * | **  |
+
+
 guildin Infra repository
 
 #Исследовать способ подключения к someinternalhost в одну
