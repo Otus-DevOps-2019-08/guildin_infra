@@ -8,17 +8,23 @@ Terraform-2 | Базовое задание | * | **  |
 
 guildin Infra repository
 
-#Исследовать способ подключения к someinternalhost в одну
-#команду из вашего рабочего устройства, проверить
-#работоспособность найденного решения и внести его в
-#README.md в вашем репозитории
+# Курс DevOps 2019-08. Бортовой журнал. 
+Задания со звездочкой отмечаются в журнале литерой *Ж*. Во-первых, символ _астериск_ занят, а во-вторых это немного символично. Самую малось, разумеется.
+
+# Содержание (under construction)
+
+| [Terraform-1](#terraform-1) | Базовое задание | [TF1 Задание Ж](#tf1-задание-ж) | ЖЖ  |
+| --- | --- | --- | --- |
+| [Terraform-2](#terraform-2) | [TF2 Управление брандмауэром](#tf2-управление-брандмауэром) | [TF2. Самостоятельное задание](#tf2-самостоятельное-задание) | [TF2 Задание Ж](#tf2-задание-ж) <br> [TF2 Задание ЖЖ](#tf2-задание-жж) |
+
+
+# Bastion-host
+Подключение к экземпляру ВМ, не имеющему внешнего адреса может быть выполнено через bastion-host:
 ssh -i ~/.ssh/gcp_id.rsa -A -J atikhonov.gcp@34.76.12.102 atikhonov.gcp@10.132.0.3
 
-#Дополнительное задание:
-Предложить вариант решения для подключения из консоли при
-помощи команды вида ssh someinternalhost из локальной
-консоли рабочего устройства, чтобы подключение выполнялось по
-алиасу someinternalhost
+## Дополнительное задание:
+Предложить вариант решения для подключения из консоли припомощи команды вида _ssh someinternalhost_ из локальной
+консоли рабочего устройства, чтобы подключение выполнялось по алиасу _someinternalhost_
 ```
 xxx$ cat ~/.ssh/config 
 Host bastion
@@ -30,19 +36,21 @@ Host someinternalhost
 	User atikhonov.gcp
 	ProxyJump bastion
 ```
-
+Отладочная информация
 bastion_IP = 34.76.108.95
 someinternalhost_IP = 10.132.0.3
 
-#Деплой тестового приложения
-##Установка GC SDK:
+# Основные сервисы Google Cloud Platform.
+## Деплой тестового приложения. Подготовка ВМ
+  * Установка GC SDK:
+```
 echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
 #Prerequisites
 apt-get install apt-transport-https ca-certificates
 curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
 sudo apt-get update && sudo apt-get install google-cloud-sdk
-
-##создание нового экземпляра приложения:
+```
+  * Cоздание нового экземпляра приложения:
 ```
 gcloud compute instances create reddit-app\
   --boot-disk-size=10GB \
@@ -53,44 +61,39 @@ gcloud compute instances create reddit-app\
   --metadata-from-file startup-script=install_n_deploy.sh \
   --restart-on-failure
 ```
+### логин в ВМ reddit-app
+  * установка ruby 
+```sudo apt update && sudo apt install -y ruby-full ruby-bundler build-essential```
+  * Проверка ruby (ruby -v) >>> ruby 2.3.1p112 (2016-04-26) [x86_64-linux-gnu]
+  * Проверка bundler (bundler -v) >>> Bundler version 1.11.2
 
-##логин в ВМ reddit-app
--установка ruby (sudo apt update && sudo apt install -y ruby-full ruby-bundler build-essential)
--Проверка ruby (ruby -v) >>> ruby 2.3.1p112 (2016-04-26) [x86_64-linux-gnu]
--Проверка bundler (bundler -v) >>> Bundler version 1.11.2
-
-#Установка MongoDB
+### Установка MongoDB
+```
 sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv EA312927
 sudo bash -c 'echo "deb http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/3.2 multiverse" > /etc/apt/sources.list.d/mongodb-org-3.2.list'
 sudo apt update
 sudo apt install -y mongodb-org
-#troubleshooting:
-GPG error: http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/3.2 Release: The following signatures couldn't be verified because the public key is not available: NO_PUBKEY D68FA50FEA312927
--sudo rm /etc/apt/sources.list.d/mongodb*.list
--sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv E52529D4
--sudo bash -c 'echo "deb http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/4.2 multiverse" > /etc/apt/sources.list.d/mongodb-org-4.2.list'
--sudo apt update
--sudo apt install -y mongodb-org
-
-##Запуск MongoDB, установка службы, проверка
+```
+### Запуск MongoDB, установка службы, проверка
 ```
 sudo systemctl start mongod
 sudo systemctl enable mongod
 sudo systemctl status mongod
 ```
 
-##Deploy
+### Reddit Deploy
+```
 git clone -b monolith https://github.com/express42/reddit.git
 cd reddit && bundle install 
+```
+### Настройка брандмауэра:
+  * создано правило default-puma-server с тегом puma-server для 0.0.0.0/0 на порт 9292 
+  * проверена работоспособность веб-интерфейса
 
-##Настройка брандмауэра:
--создано правило default-puma-server с тегом puma-server для 0.0.0.0/0 на порт 9292 
--проверена работоспособность веб-интерфейса
-
-##самостоятельная работа
--скрипты install_ruby.sh, install_mongodb.sh, deploy.sh созданы, сделаны исполняемыми
--на их базе сформирован startup_script install_n_deploy.sh:
--проверена его работа на автодеплое экземпляра:
+## Деплой тестового приложения. Самостоятельная работа
+  * скрипты install_ruby.sh, install_mongodb.sh, deploy.sh созданы, сделаны исполняемыми
+  * на их базе сформирован startup_script install_n_deploy.sh:
+  * проверена его работа на автодеплое экземпляра:
 ```
 gcloud compute instances create reddit-app4\
   --boot-disk-size=10GB \
@@ -102,47 +105,44 @@ gcloud compute instances create reddit-app4\
   --restart-on-failure
 ```
 
-##Дополнительное задание
+## Деплой тестового приложения. Дополнительное задание
  default-puma-server - удалить и создать заново
--смотрим что есть:
-gcloud compute firewall-rules list
--удаляем default-puma-server
-gcloud compute firewall-rules delete default-puma-server
--проверяем коннект - нет, создаем новое правило:
-gcloud compute firewall-rules create default-puma-server --allow tcp:9292 --source-tags=puma-server --source-ranges=0.0.0.0/0
--Ждем некоторое время... Profit!
+  * смотрим что есть:
+```gcloud compute firewall-rules list```
+  * удаляем default-puma-server
+```gcloud compute firewall-rules delete default-puma-server```
+  * проверяем коннект - нет, создаем новое правило:
+```gcloud compute firewall-rules create default-puma-server --allow tcp:9292 --source-tags=puma-server --source-ranges=0.0.0.0/0```
+  * Ждем некоторое время... Profit!
 
-
+Отладочная информация
 testapp_IP = 104.155.111.133 
 testapp_port = 9292 
 
 
-#Сборка образов VM при помощи Packer
+# Сборка образов VM при помощи Packer
 
-##Базовое задание
+## Packer Базовое задание
 - Установлен packer (packer.io), создан ADC для авторизации:
 gcloud auth application-default login
 - созданы шаблон и файл уточнений для него: ubuntu16.json и variables.json[.example]; с помощью packer validate проверена корректность синтаксиса
 Данные файлы описывают образ ВМ ubuntu-1604-lts с установленными ruby и mongodb
 - используя вышеуказанные файлы сформирован образ reddit-base-[дата] семейства reddit-base (наименования условные) 
 
-##Самостоятельное задание
+## Самостоятельное задание
 - Файл с переменными variables.json, внесен в .gitignore
 - Пользовательские данные выведены в variables.json
 - variables.json.example
 
-##Задание со *
+## Задание со Ж
 - На основе шаблона reddit-base создан шаблон immutable.json (семейство reddit-full). Данный шаблон описывает развертывание на базовом шаблоне puma server.
 - puma.service описывает запуск сервиса через systemd.unit
 - Сценарий create-redditvm.sh написан. 
 
 
+# Terraform 1
 
-
-
-# Terraform
-
-##Базовое задание
+## TF1 Базовое задание
 - Установлен terraform версии 0.12.10
 - создан main.tf
 - содержимое .gitignore:
@@ -286,33 +286,35 @@ disk_image       = "reddit-base"
 - terraform destroy && terraform plan && terraform apply
 OK.
 
-##Самостоятельное задание
-- Определите input переменную для приватного ключа, использующегося в определении подключения для провижинеров (connection);
+## Самостоятельное задание
+Определите input переменную для приватного ключа, использующегося в определении подключения для провижинеров (connection);
 variables.tf:
-...
+```
 variable private_key_path {
   description = "Path to the private key used for ssh access"
 }
-...
+```
 terraform.tfvars:
-...
+```
 private_key_path = "~/.ssh/appuser"
-...
-- Определите input переменную для задания зоны в ресурсе "google_compute_instance" "app". У нее должно быть значение по умолчанию;
+```
+Определите input переменную для задания зоны в ресурсе "google_compute_instance" "app". У нее должно быть значение по умолчанию;
 variables.tf:
-...
+```
 variable zone {
   description = "zone to deploy in"
   # Значение по умолчанию
   default = "europe-west1-b"
 }
-...
-- Форматирование файлов конфигурации: terraform fmt - OK
-- В terraform.tfvars.example указаны переменные для образца  
+```
+Форматирование файлов конфигурации: 
+```terraform fmt```
 
-##Задание со *
-###1
-- Опишите в коде терраформа добавление ssh ключа пользователя appuser1 в метаданные проекта. Выполните terraform apply и проверьте результат (публичный ключ можно брать пользователя appuser)
+В terraform.tfvars.example указаны переменные для образца  
+
+## TF1 Задание Ж
+добавление ssh ключей
+Опишите в коде терраформа добавление ssh ключа пользователя appuser1 в метаданные проекта. Выполните terraform apply и проверьте результат (публичный ключ можно брать пользователя appuser)
 ```
   metadata = {
     ssh-keys = "appuser1:${file(var.public_key_path)}"
@@ -324,8 +326,9 @@ variable zone {
     ssh-keys = "appuser:${file(var.public_key_path)} \nappuser1:${file(var.public_key_path)} \nappuser2:${file(var.public_key_path)}"
   }
 ```
-###2
-- Добавлен ssh ключ [appuser_web] в консоли CGP, осуществлен вход через ssh, запущен terraform apply:
+
+### ключи, добавленные через консоль
+Добавлен ssh ключ [appuser_web] в консоли CGP, осуществлен вход через ssh, запущен terraform apply:
 google_compute_firewall.firewall_puma: Refreshing state... [id=allow-puma-default]
 google_compute_instance.app: Refreshing state... [id=reddit-app]
 Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
@@ -333,8 +336,8 @@ Outputs:
 app_external_ip = ...
 terraform никак не реагирует на появление нового ключа.  
 
-##Задание с **
-###Балансировщик
+## TF1 Задание ЖЖ
+### Балансировщик
 - Создан файл lb.tf (изначально описал ВМ с балансировщиком на nginx > позднее переименовал его в lb.tf-nginx)
 - В lb.tf описаны ресурсы, формирующие инфраструктуру балансировщика google
 - Проведена проверка.
@@ -375,17 +378,19 @@ resource "google_compute_instance_group" "default" {
 ...
 }
 ```
-- Теперь добавим еще инстанс поверх. В terraform.tfvars изменим дефолтный var.vmcount:
+
+Теперь добавим еще инстанс поверх. В terraform.tfvars изменим дефолтный var.vmcount:
 ```
 vmcount          = "2"
 ```
-- validate && plan && apply - OK. Развернуты 2 экземпляра.
+
+validate && plan && apply - OK. Развернуты 2 экземпляра.
 
 
 
-#terraform-2
-##Управление файерволом
-- Удалим правило, разрешающее ssh по умолчанию, и создадим свое:
+# terraform-2
+## TF2 Управление брандмауэром
+Удалим правило, разрешающее ssh по умолчанию, и создадим свое:
 ```
 resource "google_compute_firewall" "firewall_ssh" {
   name = "default-allow-ssh"
@@ -399,13 +404,14 @@ resource "google_compute_firewall" "firewall_ssh" {
   source_ranges = ["0.0.0.0/0"]
 }
 ```
-- Применим изменения (terraform apply). Ошибки не будет, потому что мы уже удалили дефолтное правило. Да, я немного забежал вперед.
-- Мы также можем скормить терраформу информацию о том или ином имеющемся правиле, сгенерированном не через TF
+
+Применим изменения (terraform apply). Ошибки не будет, потому что мы уже удалили дефолтное правило. Да, я немного забежал вперед.
+NB! Мы также можем скормить терраформу информацию о том или ином имеющемся правиле, сгенерированном не через TF
 ```
 terraform import google_compute_firewall.firewall_ssh default-allow-ssh
 ```
 
-##Взаимосвязи ресурсов. Часть 1. IP адрес
+## TF2. Взаимосвязи ресурсов. Часть 1. IP адрес
 - Создадим статический адрес. В main.tf:
 ```
 resource "google_compute_address" "app_ip" {
@@ -416,7 +422,6 @@ GCP по умолчанию дает нам создать только один
 - После указания нового ресурса они начнут создаваться параллельно. 
 - Сошлемся на новый статический адрес в ВМ app:
 ```
-...
 network_interface {
  network = "default"
  access_config {
@@ -424,8 +429,8 @@ network_interface {
  }
 }
 ...
-
--Пересоздадим ресурсы и убедимся, что ВМ app начинает создаваться только после создания ресурса google_compute_address app_ip
+```
+  * Пересоздадим ресурсы и убедимся, что ВМ app начинает создаваться только после создания ресурса _google_compute_address app_ip_
 
 ##Несколько ВМ -> модули
 - Создадим в ../packer шаблоны app.json и db.json
@@ -469,7 +474,7 @@ app.json
     ]
 }
 ```
-db.json:
+Файл db.json:
 ```
 {
     "builders": [
@@ -497,12 +502,11 @@ db.json:
     ]
 }
 ```
-Мы не стали пренебрегать провиженерами. Во-первых это несложно, во-вторых инфраструктура будет взлетать существенно быстрее, а когда делаешь apply | destroy | apply многократно, это существенно экономит время.
+...Мы не стали пренебрегать провиженерами. Во-первых это несложно, во-вторых инфраструктура будет взлетать существенно быстрее, а когда делаешь apply | destroy | apply многократно, это существенно экономит время.
 
 - Опишем конфигурации ВМ в терраформе:
-####APP
+  * APP
 ```
-# Собственно ВМ
 resource "google_compute_instance" "app" {
   name = "reddit-app"
   machine_type = "f1-micro"  # а не g1-small ))
@@ -522,7 +526,6 @@ resource "google_compute_instance" "app" {
   }
 }
 
-# и его брандмауэр
 resource "google_compute_address" "app_ip" { 
   name = "reddit-app-ip" 
 }
@@ -540,7 +543,7 @@ resource "google_compute_firewall" "firewall_puma" {
 ```
 
 
-####DB
+  * DB
 ```
 resource "google_compute_instance" "db" {
   name = "reddit-db"
@@ -572,7 +575,7 @@ resource "google_compute_instance" "db" {
   source_tags = ["reddit-app"]
 }
 ```
-- Не забудем указать переменные с именами образов в variables.tf
+  * Не забудем указать переменные с именами образов в variables.tf
 ```
 variable app_disk_image {
   description = "Disk image for reddit app"
@@ -584,8 +587,8 @@ variable db_disk_image {
 }
 
 ```
-- Вынесем правила файерфвола в отдельный файл vpc.tf и переместим правила брандмауэра туда
-- В main.tf осталось немного:
+  * Вынесем правила файерфвола в отдельный файл vpc.tf и переместим правила брандмауэра туда
+  * В main.tf осталось немного:
 ```
 provider "google" {
   version = "2.15"
@@ -593,7 +596,7 @@ provider "google" {
   region  = var.region
 }
 ```
-##Модули
+## TF2 Модули
 - Создадим каталог modules и подкаталоги экземпляров
 ```
 mkdir modules
@@ -601,34 +604,34 @@ mkdir modules/app
 mkdir modules/db
 mkdir modules/vpc
 ```
-- Перенесем туда уже выделенные экземпляры:
+  * Перенесем туда уже выделенные экземпляры:
 ```
 mv app.tf modules/app
 mv db.tf modules/db
 mv vpc.tf modules/vpc
 ```
 
-- Используемые в экземплярах переменные рассуем по файлам variables.tf 
-- И outputs:
+  * Используемые в экземплярах переменные рассуем по файлам variables.tf 
+  * И outputs:
 ```
-# ../modules/app/main.tf
+# ../modules/app/outputs.tf
 output "app_external_ip" {
   value = google_compute_instance.app.network_interface.0.access_config.0.assigned_nat_ip
 }
 
 ...
 
-# ../modules/db/main.tf
+# ../modules/db/outputs.tf
 output "internal_ip" {
   value = google_compute_instance.db[*].network_interface[0].network_ip
 }
 
 ```
-- Аналогично создаем модуль vpc в ../modules/vpc/main.tf	
-- Создадим инфраструктуру и проверим запуск ВМ
+  * Аналогично создаем модуль vpc в ../modules/vpc/main.tf	
+  * Создадим инфраструктуру и проверим запуск ВМ
 
-##Самостоятельное задание
-- Внесем в модуль vpc изменения:
+##TF2. Самостоятельное задание
+  * Внесем в модуль vpc изменения:
 ```
 module "vpc" {
   source = "modules/vpc"
@@ -669,7 +672,7 @@ module "vpc" {
 - Поменяем конфигурацию модулей, добавляя / удаляя переменные, указывая их в конфигурации
 - Отформатируем файлы terraform fmt
 
-## *
+## TF2 Задание Ж
 ### Хранение стейт файла в удаленном бекенде для окружений stage и prod
 Google Cloud Storage в качестве бекенда. 
 Референс здесь: https://registry.terraform.io/modules/SweetOps/storage-bucket/google/0.3.0
@@ -694,8 +697,8 @@ output storage-bucket_url {
   value = module.storage-bucket.url
 }
 ```
-- terraform init && terraform plan && terraform apply
-- Описание бекенда нужно вынести в отдельный файл backend.tf (по файлу в каждое окружение):
+  * terraform init && terraform plan && terraform apply
+  * Описание бекенда нужно вынести в отдельный файл backend.tf (по файлу в каждое окружение):
 ```
 terraform {
   backend "gcs" {
@@ -704,7 +707,7 @@ terraform {
   }
 } 
 ```
-- terraform init && terraform plan && terraform apply # для каждого окружения. terraform destroy, конечно
+  * _terraform init && terraform plan && terraform apply_ # для каждого окружения. _terraform destroy_, конечно
 
 ###2. 
 Перенесите конфигурационные файлы Terraform в другую директорию (вне репозитория). Проверьте, что state-файл
@@ -723,12 +726,12 @@ Error: Error creating instance: googleapi: Error 409: The resource 'projects/inf
    1: resource "google_compute_instance" "db" {
 ```
 
-## TF-2 **
+## TF2 Задание ЖЖ 
 В процессе выполнения предыдущих задач были выпечены (слава пакеру!) образы reddit-app-base и reddit-db-base.
 Это существенно ускорило работу terraform apply
 Однако ссылки на базы данных у сервера приложения нет, да и конфигурация самой базы данных - в умолчальном состоянии.
 Поэтому работа провижинеров призвана обеспечить необходимые изменения:
-- Для начала, app-экземпляру необходимо узнать адрес db-экземпляра. Как мы помним, конфигуация файервола для db-экземляра разрешает трафик тегированных reddit-app ВМ (не нат!) на reddit-db ВМ.
+  * Для начала, app-экземпляру необходимо узнать адрес db-экземпляра. Как мы помним, конфигуация файервола для db-экземляра разрешает трафик тегированных reddit-app ВМ (не нат!) на reddit-db ВМ.
 ```
 resource "google_compute_firewall" "firewall_mongo" {
   name    = "allow-mongo-default"
@@ -742,10 +745,11 @@ resource "google_compute_firewall" "firewall_mongo" {
 }
 ```
 Для этого положим его в output переменную ../modules/db/outputs.tf:
+```
 output "internal_ip" {
   value = google_compute_instance.db[*].network_interface[0].network_ip
 }
-
+```
 ...И сделаем ссылку в материнской конфигурации outputs.tf:
 ```
 output "db_addr" {
@@ -759,7 +763,7 @@ module "app" {
   db_addr         = module.db.internal_ip
 }
 ```
-- Теперь нам необходимы провижинеры:
+  * Теперь нам необходимы провижинеры:
 Для app:
 ```
 resource "null_resource" "post-install" {
@@ -792,7 +796,5 @@ resource "null_resource" "post-install" {
     ]
   }
 ```
-- NB! В данном случае нам не понадобилось размещение в директориях модулей каких-либо файлов, но если такая необходимость возникнет, то путь к ним начинается c ${path.module}
-- NB! Выведение провиженера в нуль-ресурс - очень важный архитектурный момент, если что-то  в процессе идет не так, то taint и пересоздание происходит нуль-ресурса, а не экземпляра ВМ
-
-
+  * NB! В данном случае нам не понадобилось размещение в директориях модулей каких-либо файлов, но если такая необходимость возникнет, то путь к ним начинается c ${path.module}
+  * NB! Выведение провиженера в нуль-ресурс - очень важный архитектурный момент, если что-то  в процессе идет не так, то taint и пересоздание происходит нуль-ресурса, а не экземпляра ВМ
