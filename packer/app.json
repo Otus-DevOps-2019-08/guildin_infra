@@ -3,13 +3,13 @@
         {
             "type": "googlecompute",
             "project_id": "{{user `project_id`}}",
-            "image_name": "reddit-base-{{timestamp}}",
+            "image_name": "reddit-app-base",
             "image_family": "reddit-base",
             "source_image_family": "{{user `source_image_family`}}",
             "zone": "europe-west1-b",
-            "ssh_username": "atikhonov.gcp",
+            "ssh_username": "{{user `ssh_username`}}",
             "machine_type": "{{user `machine_type`}}",
-            "image_description": "{{user `image_description`}}",
+            "image_description": "REDDIT APP",
             "disk_size":"{{user `disk_size`}}",
             "disk_type":"{{user `disk_type`}}",
             "network":"{{user `network`}}",
@@ -23,8 +23,13 @@
             "execute_command": "sudo {{.Path}}"
         },
         {
+            "type": "file",
+            "source": "files/puma.service",
+            "destination": "/tmp/puma.service"
+        },
+        {
             "type": "shell",
-            "script": "scripts/install_mongodb.sh",
+            "script": "files/deploy.sh",
             "execute_command": "sudo {{.Path}}"
         }
     ]
