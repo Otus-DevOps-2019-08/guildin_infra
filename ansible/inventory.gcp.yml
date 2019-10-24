@@ -1,0 +1,9 @@
+plugin: gcp_compute
+auth_kind: serviceaccount
+service_account_file: "~/.ssh/infra-40b9617a4128.json"
+regions:
+  - eu-west1-b
+projects:
+  - infra-253310
+hostnames:
+  - name #public_ip # Из какого тега забрать имя хоста

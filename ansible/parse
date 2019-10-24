@@ -1,0 +1,14 @@
+echo "{"
+echo "    \"all\": {"
+echo "         \"children\": {"
+
+
+
+echo "groups"
+cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.tags' | jq '.items'
+
+echo "names"
+cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.name'
+
+echo "nat_ip-s"
+cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.networkInterfaces' | jq '.[0]' | jq '.accessConfigs' | jq '.[0]' | jq '.natIP'
