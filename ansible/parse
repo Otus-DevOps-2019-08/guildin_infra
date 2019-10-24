@@ -1,14 +1,26 @@
+#!/bin/bash
 echo "{"
 echo "    \"all\": {"
 echo "         \"children\": {"
 
 
-
 echo "groups"
-cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.tags' | jq '.items'
+cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.tags' | jq -c '.items' #> bcode1
 
 echo "names"
-cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.name'
+cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.name' #> bcode2
 
 echo "nat_ip-s"
-cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.networkInterfaces' | jq '.[0]' | jq '.accessConfigs' | jq '.[0]' | jq '.natIP'
+cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.networkInterfaces' | jq '.[0]' | jq '.accessConfigs' | jq '.[0]' | jq '.natIP' #> bcode3
+
+i=`cat bcode1 | wc -l`
+echo $i
+
+x=1
+while [ $x -le $i ]
+do
+array=`sed -n ${x}p bcode1`
+echo "ssssssss" $array[$x]
+x=$(( $x + 1 ))
+done
+
