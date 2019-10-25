@@ -16,7 +16,7 @@ function getList() {
 	}
 
 #Грузим джейсона простыней от GCP
-ansible-inventory -i inventory.gcp.yml --list --export > inventory.json
+ansible-inventory -i inventory.gcp.yml --output inventory.json
 #(реально страшная простыня)
 
 echo
