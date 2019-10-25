@@ -1,6 +1,8 @@
 {
-  "hosts": [
-    "reddit-app",
-    "reddit-db"
-  ]
-}
+    "all": {
+         "children":
+           {
+"hosts": 
+{"35.241.204.244": null,
+"23.251.128.237": null,
+         }       }
