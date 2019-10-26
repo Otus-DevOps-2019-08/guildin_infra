@@ -16,8 +16,8 @@ guildin Infra repository
 | [Terraform-1](#terraform-1) | Базовое задание | [TF1 Задание Ж](#tf1-задание-ж) | ЖЖ  |
 | --- | --- | --- | --- |
 | [Terraform-2](#terraform-2) | [TF2 Управление брандмауэром](#tf2-управление-брандмауэром) | [TF2. Самостоятельное задание](#tf2-самостоятельное-задание) | [TF2 Задание Ж](#tf2-задание-ж) <br> [TF2 Задание ЖЖ](#tf2-задание-жж) |
-
-
+| --- | --- | --- | --- |
+| [Ansible-1](#ansible-1) | Базовое задание | [A1 Задание Ж](#a1-задание-ж) | ЖЖ  |
 # Bastion-host
 Подключение к экземпляру ВМ, не имеющему внешнего адреса может быть выполнено через bastion-host:
 ssh -i ~/.ssh/gcp_id.rsa -A -J atikhonov.gcp@34.76.12.102 atikhonov.gcp@10.132.0.3
@@ -798,3 +798,282 @@ resource "null_resource" "post-install" {
 ```
   * NB! В данном случае нам не понадобилось размещение в директориях модулей каких-либо файлов, но если такая необходимость возникнет, то путь к ним начинается c ${path.module}
   * NB! Выведение провиженера в нуль-ресурс - очень важный архитектурный момент, если что-то  в процессе идет не так, то taint и пересоздание происходит нуль-ресурса, а не экземпляра ВМ
+
+# Ansible-1
+
+## Установка ansible
+sudo apt install python-pip
+echo "ansible>=2.4" > requirements.txt
+pip install -r requirements.txt
+
+Не катит. Тогда:
+```
+sudo apt-get install python-setuptools ansible
+```
+apt без вопросов поставит ansible 2.2, а потом накатываем через этот ваш pip версию больше 2.4, а конкретно ansible 2.8.6.
+
+  * Развернем stage версию окружения:
+```cd ../terraform/stage && terraform apply```
+  * Получим outputs и:
+~/  ansible$ echo "appserver ansible_host=X.X.X.X ansible_user=appuser ansible_private_key_file=~/.ssh/appuser" > inventory
+
+
+тестовый запуск:
+```
+ansible appserver -i ./inventory -m ping
+The authenticity of host '23.251.128.237 (23.251.128.237)' can't be established.
+ECDSA key fingerprint is SHA256:zXR27pcxoeZYnOZZVoKqT3UI39qR6zqYH8J/0AE17Po.
+Are you sure you want to continue connecting (yes/no)? yes
+[DEPRECATION WARNING]: Distribution Ubuntu 16.04 on host appserver should use /usr/bin/python3, but is using /usr/bin/python for backward compatibility with prior 
+Ansible releases. A future Ansible release will default to using the discovered platform python for this host. See 
+https://docs.ansible.com/ansible/2.8/reference_appendices/interpreter_discovery.html for more information. This feature will be removed in version 2.12. Deprecation 
+warnings can be disabled by setting deprecation_warnings=False in ansible.cfg.
+appserver | SUCCESS => {
+    "ansible_facts": {
+        "discovered_interpreter_python": "/usr/bin/python"
+    }, 
+    "changed": false, 
+    "ping": "pong"
+}
+
+```
+
+по аналогии добавим данные для подключения к северу БД
+```
+dbserver ansible_host=Y.Y.Y.Y ansible_user=appuser ansible_private_key_file=~/.ssh/appuser
+```
+Зададим настройки для подключения по умолчанию (ansible.cfg):
+```
+[defaults]
+inventory = ./inventory
+remote_user = appuser
+private_key_file = ~/.ssh/appuser
+host_key_checking = False
+retry_files_enabled = False
+```
+После этого приведем inventory к следующему виду:
+```
+appserver ansible_host=X.X.X.X
+dbserver ansible_host=Y.Y.Y.Y
+```
+
+Проверим работу:
+```ansible dbserver -m command -a uptime```
+[DEPRECATION WARNING]: Distribution Ubuntu 16.04 on host dbserver should use /usr/bin/python3, but is using /usr/bin/python for backward compatibility with prior 
+Ansible releases. A future Ansible release will default to using the discovered platform python for this host. See 
+https://docs.ansible.com/ansible/2.8/reference_appendices/interpreter_discovery.html for more information. This feature will be removed in version 2.12. Deprecation 
+warnings can be disabled by setting deprecation_warnings=False in ansible.cfg.
+dbserver | CHANGED | rc=0 >>
+ 21:52:11 up 14 min,  1 user,  load average: 0.00, 0.02, 0.06
+
+### Ansible. Работа с группами хостов
+[app]
+appserver ansible_host=23.251.128.237 
+dbserver ansible_host=34.77.203.234 
+
+Проверка:
+```ansible app -m ping```
+
+### [Документация по  inventory](https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html)
+
+
+ansible app -m _command_ -a 'ruby -v; bundler -v' -i inventory.yml - _ не сработает_
+ansible app -m shell -a 'ruby -v; bundler -v' -i inventory.yml - _сработает_
+Модуль command выполняет команды, не используя оболочку(sh, bash), поэтому в нем не работают перенаправления потокови нет доступа к некоторым переменным окружения.
+
+### Выполнение команд
+  * 
+```ansible db -m *command* -a 'systemctl status mongod' -i inventory.yml```
+```ansible db -m *systemd* -a name=mongod -i inventory.yml```
+```ansible db -m *service* -a name=mongod -i inventory.yml```
+  * Установка git:
+```ansible app -m git -a 'repo=https://github.com/express42/reddit.git dest=/home/appuser/reddit'```
+При повторном запуске возвращает результат SUCCESS c параметром changed: false
+### Первый плейбук:
+```
+---
+- name: Clone
+  hosts: app
+  tasks:
+    - name: Clone repo
+      git:
+        repo: https://github.com/express42/reddit.git
+        dest: /home/appuser/reddit
+```
+
+Попробуем запустить:
+```ansible-playbook clone.yml```
+appserver                  : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+--- Второй запуск
+```ansible-playbook clone.yml```
+appserver                  : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+--- Третий запуск после удаления на целевой группе папки реддит
+```ansible app -m command -a ' rm -rf ~/reddit' && ansible-playbook clone.yml```
+appserver                  : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+
+## A1 Задание Ж
+[Заметка про json в ансибл (или наоборот)](https://medium.com/@Nklya/%D0%B4%D0%B8%D0%BD%D0%B0%D0%BC%D0%B8%D1%87%D0%B5%D1%81%D0%BA%D0%BE%D0%B5-%D0%B8%D0%BD%D0%B2%D0%B5%D0%BD%D1%82%D0%BE%D1%80%D0%B8-%D0%B2-ansible-9ee880d540d6)
+  * Попробуем сформировать json inventory с подобной структурой: 
+```
+{
+  "all": {
+    "children": {
+    "apps": {
+        "hosts": {
+          "35.241.204.244": null
+        }
+      },
+      "dbs": {
+        "hosts": {
+          "23.251.128.237": null
+        }
+      }
+    }
+  }
+}
+```
+  * Тестирование:
+```ansible -i static-inv.json all -m ping```
+Что же, статическое inventory работает.
+
+  * Для динамического inventory используем GCP плагин для ansible (далее inventory.gcp.yml):
+```
+plugin: gcp_compute
+auth_kind: serviceaccount
+service_account_file: "~/.ssh/infra-40b9617a4128.json" #credential, полученный через консоль. Через gcloud tool не стал, не так то часто забираешь ключи от машины.
+regions:
+  - eu-west1-b
+projects:
+  - infra-253310
+hostnames:
+  - public_ip # Из какого тега забрать имя хоста
+compose:
+  ansible_host: networkInterfaces[0].accessConfigs[0].natIP
+```
+
+  * Сошлемся на него в ansible.cfg, чтобы каждый раз не указывать. Можно даже попробовать:
+```ansible all --list```
+  hosts (2):
+    35.241.204.244
+    23.251.128.237
+Это замечательно, это работает, это не json. Ну хорошо. ansible-inventory умеет в json:
+```ansible-inventory --export --list``` > inventory.json
+Да, мы сразу положили все-все-все в файл. Но значимые данные на текущий момент имеют следующую структуру:
+```json
+{
+    "_meta": {
+        "hostvars": {
+            "23.251.128.237": {                         
+                "ansible_host_natip": "23.251.128.237", 
+                "name": "reddit-db", 
+                "project": "infra-253310", 
+                "tags": {
+                    "items": [
+                        "reddit-db"
+                    ]
+                }, 
+                "zone": "europe-west1-b", 
+            }, 
+            "35.241.204.244": {
+                "ansible_host_natip": "35.241.204.244", 
+                "name": "reddit-app", 
+                "project": "infra-253310", 
+                "tags": {
+                    "items": [
+                        "http-server", 
+                        "reddit-app"
+                    ]
+                }, 
+                "zone": "europe-west1-b", 
+            }
+        }
+    }, 
+    "all": {
+        "children": [
+            "ungrouped"
+        ]
+    }, 
+    "ungrouped": {
+        "hosts": [
+            "23.251.128.237", 
+            "35.241.204.244"
+        ]
+    }
+}
+```
+
+В соответствии со статьей нужно сделать следующее:
+1. Динамическое инвентори представляет собой простой исполняемый скрипт (+x), который при запуске с параметром --list возвращает список хостов в формате JSON.
+2. При запуске скрипта с параметром --host <hostname> (где <hostname> это один из хостов), скрипт должен вернуть JSON с переменными для этого хоста. Поддержка этой опции необязательно, скрипт может просто вернуть пустой список. 
+
+Для работы с json возьмем утилиту jq.
+Ей передадим inventory.json, формирующийся с помощью плагина gcp_compute (подробнее в файле inventory.gcp.yml)
+На основе данных из inventory.json формируется статический json, который может быть использован в качестве -i <inventory> ansible
+### json-i.sh
+```
+#!/bin/bash
+function getHost () {
+	if [[ -n $1 ]]
+	then
+		printf "getting data for host $1  \n"
+		ansible-inventory -i inventory.gcp.yml --output inventory.json
+		cat inventory.json | jq '._meta.hostvars['\"$1\"']' > inventory.json
+	else
+		printf "No hostname specified!"
+	fi
+	}
+
+function getList() {
+	ansible-inventory -i inventory.gcp.yml --output inventory.json
+	printf "{\n" 
+	printf "    \"all\": {\n"
+	printf "         \"children\":{\n"
+	
+#имплементация группировки хостов. В данной работе предпочту не реализовывать.
+#Вместо этого возьму hostname и сделаю вид, что так и было.
+#Да, будет ругаться на дефисы. Все равно будет, можно было бы sed 's/-//g'
+	cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.name' > fill.arr
+	i=0
+	while read line
+	do
+		HOSTS[$i]="$line"
+		i=$(($i+1))
+	done < fill.arr
+	rm fill.arr
+	
+	i=0
+	cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.networkInterfaces' | jq '.[0]' | jq '.accessConfigs' | jq '.[0]' | jq '.natIP' > IPs.arr	
+	while read line
+	do
+		IPs[$i]="$line"
+		i=$(($i+1))
+	done < IPs.arr
+	rm IPs.arr
+	
+	j=0
+	for h in "${HOSTS[@]}"
+	do
+		printf "        ${HOSTS[$j]}: {\n                 \"hosts\": {\n" 
+		printf "${IPs[$j]}: null }\n"
+	
+		if [[ $((i-j)) > 1 ]]; then printf "},\n"; else printf "}\n"; fi 
+		j=$(($j+1))
+	done	
+			printf "             }\n       }\n}\n"
+	
+	
+
+	}
+
+echo
+while [ -n "$1" ]
+do
+	case "$1" in
+		--list) getList ;;
+		--host) getHost $2 ;;
+		--help) printf "usage: json-i.sh ARGS\n --list - перечень хостов в инвентори \n --host [hostname] - выдать json-данные по этому хосту.\n";;
+	esac
+	shift
+done
+```

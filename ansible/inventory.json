@@ -4,7 +4,7 @@
             "reddit-app": {
                 "canIpForward": false, 
                 "cpuPlatform": "Intel Haswell", 
-                "creationTimestamp": "2019-10-22T11:58:55.335-07:00", 
+                "creationTimestamp": "2019-10-26T03:50:43.150-07:00", 
                 "deletionProtection": false, 
                 "disks": [
                     {
@@ -27,18 +27,18 @@
                         "type": "PERSISTENT"
                     }
                 ], 
-                "id": "2001146074244509569", 
+                "id": "1910943287059520493", 
                 "image": null, 
                 "kind": "compute#instance", 
                 "labelFingerprint": "42WmSpB8rSM=", 
                 "machineType": "f1-micro", 
                 "machineType_selflink": "https://www.googleapis.com/compute/v1/projects/infra-253310/zones/europe-west1-b/machineTypes/f1-micro", 
                 "metadata": {
-                    "fingerprint": "xGR2IIDmXzE=", 
+                    "fingerprint": "y1Xho9AD4C0=", 
                     "items": [
                         {
                             "key": "ssh-keys", 
-                            "value": "appuser:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCalTymQ4pFKxwSZVje5LESHqX070fgD2z5Vq6G40CvuHBTlXzPbb01T8vq5QCCzIrzPpRB+TcR4HGmnnMI1z0oB2qSUEpPZJs9nABsT1iP1waknuB1kwWSPnzx8gHkWfBCTbkoM7xsRReD1FVsnto217Z1WFAcS1f5VvAH2u+/chNB3gynKv96khW4w4eDjByV3ezTL1qEF6NYbLJat2zaqIySQ3ObXgmkZK+OWtCvXbGk5hPmpjajctsNSxaYfQSpBM1Vo7ZW0+ySt/1Y5wAlUcG0YlDVFWtI6+VhOke/eWIWsVlXoOM3hrNkybWnVkaPhy1ssnSQAA3fnQYFdGMIsss61EckDBhUy2uc+TKbPjTmjBOlrDZuq9bnIhxU5ZTOmFTgbo+aSOowX/Kzk+Wm8ysI3aKmPypcPp95SRVdTg6f1xXbhJxpxHhYEOJaDRdpTN9FlE2n/B1fDU0Pp1CnWiYvav6VVs41JX/2yDrjx7Dj72PfnianHTf68SC8wv0R35l0IYf9x5XFE633wmmDWiQnogvQp+hMrqXPTzh1dSjnNBdZUacfH/N3dfheX2LkMPXPjRJukWxN7EZ1SlWbpYpond+XxmFKx7LYVt40VuDrEkBB8SzXkE1oOphNOa/PXrXYzPQmVLcftzbG6X2LVACVyPihFpEKfebF7AThVQ== atikhonov.gcp@gmail.com"
+                            "value": "appuser:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCalTymQ4pFKxwSZVje5LESHqX070fgD2z5Vq6G40CvuHBTlXzPbb01T8vq5QCCzIrzPpRB+TcR4HGmnnMI1z0oB2qSUEpPZJs9nABsT1iP1waknuB1kwWSPnzx8gHkWfBCTbkoM7xsRReD1FVsnto217Z1WFAcS1f5VvAH2u+/chNB3gynKv96khW4w4eDjByV3ezTL1qEF6NYbLJat2zaqIySQ3ObXgmkZK+OWtCvXbGk5hPmpjajctsNSxaYfQSpBM1Vo7ZW0+ySt/1Y5wAlUcG0YlDVFWtI6+VhOke/eWIWsVlXoOM3hrNkybWnVkaPhy1ssnSQAA3fnQYFdGMIsss61EckDBhUy2uc+TKbPjTmjBOlrDZuq9bnIhxU5ZTOmFTgbo+aSOowX/Kzk+Wm8ysI3aKmPypcPp95SRVdTg6f1xXbhJxpxHhYEOJaDRdpTN9FlE2n/B1fDU0Pp1CnWiYvav6VVs41JX/2yDrjx7Dj72PfnianHTf68SC8wv0R35l0IYf9x5XFE633wmmDWiQnogvQp+hMrqXPTzh1dSjnNBdZUacfH/N3dfheX2LkMPXPjRJukWxN7EZ1SlWbpYpond+XxmFKx7LYVt40VuDrEkBB8SzXkE1oOphNOa/PXrXYzPQmVLcftzbG6X2LVACVyPihFpEKfebF7AThVQ== atikhonov.gcp@gmail.com\n"
                         }
                     ], 
                     "kind": "compute#metadata"
@@ -50,12 +50,12 @@
                             {
                                 "kind": "compute#accessConfig", 
                                 "name": "external-nat", 
-                                "natIP": "35.241.204.244", 
+                                "natIP": "104.199.82.210", 
                                 "networkTier": "PREMIUM", 
                                 "type": "ONE_TO_ONE_NAT"
                             }
                         ], 
-                        "fingerprint": "909VQbRx0tg=", 
+                        "fingerprint": "FxAYGF_lH6s=", 
                         "kind": "compute#networkInterface", 
                         "name": "nic0", 
                         "network": {
@@ -63,7 +63,7 @@
                             "region": "global", 
                             "selfLink": "https://www.googleapis.com/compute/v1/projects/infra-253310/global/networks/default"
                         }, 
-                        "networkIP": "10.132.15.219", 
+                        "networkIP": "10.132.15.229", 
                         "subnetwork": {
                             "name": "default", 
                             "region": "europe-west1", 
@@ -81,9 +81,8 @@
                 "startRestricted": false, 
                 "status": "RUNNING", 
                 "tags": {
-                    "fingerprint": "dHIM2nddtfA=", 
+                    "fingerprint": "M-ggixIz-AU=", 
                     "items": [
-                        "http-server", 
                         "reddit-app"
                     ]
                 }, 
@@ -93,7 +92,7 @@
             "reddit-db": {
                 "canIpForward": false, 
                 "cpuPlatform": "Intel Haswell", 
-                "creationTimestamp": "2019-10-22T11:58:51.161-07:00", 
+                "creationTimestamp": "2019-10-26T03:50:38.458-07:00", 
                 "deletionProtection": false, 
                 "disks": [
                     {
@@ -116,7 +115,7 @@
                         "type": "PERSISTENT"
                     }
                 ], 
-                "id": "1122118040012648325", 
+                "id": "3129912751499614738", 
                 "image": null, 
                 "kind": "compute#instance", 
                 "labelFingerprint": "42WmSpB8rSM=", 
@@ -139,12 +138,12 @@
                             {
                                 "kind": "compute#accessConfig", 
                                 "name": "external-nat", 
-                                "natIP": "23.251.128.237", 
+                                "natIP": "35.187.39.18", 
                                 "networkTier": "PREMIUM", 
                                 "type": "ONE_TO_ONE_NAT"
                             }
                         ], 
-                        "fingerprint": "ZypfOQLeoso=", 
+                        "fingerprint": "amIAXrgEh2E=", 
                         "kind": "compute#networkInterface", 
                         "name": "nic0", 
                         "network": {
@@ -152,7 +151,7 @@
                             "region": "global", 
                             "selfLink": "https://www.googleapis.com/compute/v1/projects/infra-253310/global/networks/default"
                         }, 
-                        "networkIP": "10.132.15.218", 
+                        "networkIP": "10.132.15.228", 
                         "subnetwork": {
                             "name": "default", 
                             "region": "europe-west1", 
