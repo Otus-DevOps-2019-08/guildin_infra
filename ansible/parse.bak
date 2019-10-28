@@ -1,0 +1,28 @@
+#!/bin/bash
+printf "{\n"
+printf "    \"all\": {\n"
+printf "         \"children\":\n           {\n\"hosts:\""
+
+# имплементация группировки хостов. В данной работе предпочту не реализовывать.
+#echo "groups"
+#cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.tags' | jq -c '.items' #> bcode1
+
+#echo "names"
+cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.name' > bcode2
+
+#echo "nat_ip-s"
+cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.networkInterfaces' | jq '.[0]' | jq '.accessConfigs' | jq '.[0]' | jq '.natIP' > bcode3
+
+i=`cat bcode2 | wc -l`
+x=1
+while [ $x -le $i ]
+do
+	printf "{\n"
+	sed -n ${x}p bcode2 
+	printf "	{\n"
+	sed -n ${x}p bcode3
+	#printf ":null\n"
+	printf "\n}\n}"
+x=$(( $x + 1 ))
+done
+printf "}\n"
