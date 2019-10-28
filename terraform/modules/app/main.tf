@@ -19,25 +19,25 @@ resource "google_compute_instance" "app" {
   }
 }
 
-resource "null_resource" "post-install" {
-  connection {
-    type        = "ssh"
-    host        = google_compute_address.app_ip.address
-    user        = "appuser"
-    agent       = false
-    private_key = file(var.private_key_path)
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "sudo echo DATABASE_URL=${var.db_addr.0} > /tmp/grab.env",
-      "sudo sed -i '/Service/a EnvironmentFile=/tmp/grab.env' /etc/systemd/system/puma.service",
-      "sudo systemctl daemon-reload",
-      "sudo service puma restart",
-    ]
-  }
-
-}
+#resource "null_resource" "post-install" {
+#  connection {
+#    type        = "ssh"
+#    host        = google_compute_address.app_ip.address
+#    user        = "appuser"
+#    agent       = false
+#    private_key = file(var.private_key_path)
+#  }
+#
+#  provisioner "remote-exec" {
+#    inline = [
+#      "sudo echo DATABASE_URL=${var.db_addr.0} > /tmp/grab.env",
+#      "sudo sed -i '/Service/a EnvironmentFile=/tmp/grab.env' /etc/systemd/system/puma.service",
+#      "sudo systemctl daemon-reload",
+#      "sudo service puma restart",
+#    ]
+#  }
+#
+#}
 
 resource "google_compute_address" "app_ip" {
   name = "reddit-app-ip"
