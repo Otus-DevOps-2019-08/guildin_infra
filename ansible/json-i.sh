@@ -3,7 +3,7 @@ function getHost () {
 	if [[ -n $1 ]]
 	then
 		printf "getting data for host $1  \n"
-		ansible-inventory -i inventory.gcp.yml --output inventory.json
+		ansible-inventory -i inventory.gcp.yml --list --output inventory.json
 		cat inventory.json | jq '._meta.hostvars['\"$1\"']' > inventory.json
 	else
 		printf "No hostname specified!"
@@ -11,7 +11,7 @@ function getHost () {
 	}
 
 function getList() {
-	ansible-inventory -i inventory.gcp.yml --output inventory.json
+	ansible-inventory -i inventory.gcp.yml --list --output inventory.json
 	printf "{\n" 
 	printf "    \"all\": {\n"
 	printf "         \"children\":{\n"
@@ -19,7 +19,7 @@ function getList() {
 #имплементация группировки хостов. В данной работе предпочту не реализовывать.
 #Вместо этого возьму hostname и сделаю вид, что так и было.
 #Да, будет ругаться на дефисы. Все равно будет, можно было бы sed 's/-//g'
-	cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.name' > fill.arr
+	cat inventory.json | sed 's/-//' |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.name' > fill.arr
 	i=0
 	while read line
 	do
