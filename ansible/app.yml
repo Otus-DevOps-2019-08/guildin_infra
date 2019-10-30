@@ -3,7 +3,7 @@
   hosts: redditapp
   become: true
   tasks:
-    - include_vars: variables.yml
+    - include_vars: variables.yaml
     - name: Add unit file for Puma
       copy:
         src: files/puma.service
