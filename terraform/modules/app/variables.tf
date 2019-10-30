@@ -12,7 +12,7 @@ variable private_key_path {
 }
 variable app_disk_image {
   description = "Disk image"
-  default     = "ubuntu-1604-lts" #reddit-app-base еще есть
+  default     = "reddit-app-base"
 }
 variable db_addr {
   description = "Das address of da DB inst"

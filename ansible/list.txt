@@ -1,7 +1,0 @@
-{
-  "hosts": [
-    "reddit-app",
-    "reddit-db"
-  ]
-}
-

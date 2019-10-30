@@ -4,11 +4,11 @@
          "children":{
         "redditapp": {
                  "hosts": {
-"34.77.176.136": null }
+"35.240.110.146": null }
 },
         "redditdb": {
                  "hosts": {
-"35.240.110.146": null }
+"34.77.176.136": null }
 }
              }
        }

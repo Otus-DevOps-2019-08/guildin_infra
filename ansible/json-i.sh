@@ -48,7 +48,9 @@ function getList() {
 	done	
 			printf "             }\n       }\n}\n"
 	
-	
+	dbhost=$(cd ../terraform/stage && terraform output -json db_addr | jq '. []')
+	sed -i "s/^db_host:\ .*$/db_host: $dbhost/" variables.yml 
+	sed -i 's/"//g' variables.yml
 
 	}
 
