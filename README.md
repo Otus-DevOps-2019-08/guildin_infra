@@ -1264,10 +1264,82 @@ terraform destroy && terraform apply
 ```
 
 # Ansible-2 packer
-Не глядя (там разберемся):
+Выделим плейлисты, разворачивающие приложения в отдельные файлы для использования в packer
+packer_app.yml (конечная версия):
+---
 ```
- 2072  cp app.yml packer_app.yml
- 2073  cp db.yml packer_db.yml
+---
+- name: Configure appserver
+  hosts: all                                                        # Так как прогоняться будет только создаваемый экземпляр
+  become: true
+  tasks:
+  - name: Install ruby bundler build-essential
+    apt:
+      name: "{{ packages }}"
+    vars:
+      packages:
+      - ruby-full
+      - ruby-bundler
+      - build-essential                                            # Если честно, не помню зачем ставил, но кажется нужны.
+  - name: Fetch the latest version of application code
+    git:
+      repo: 'https://github.com/express42/reddit.git'
+      dest: /home/appuser/reddit
+      version: monolith 
+  - name: Bundle install
+    bundler:
+      state: present
+      chdir: /home/appuser/reddit 
+  - name: Add unit file for Puma
+    copy:
+      src: files/puma.service
+      dest: /etc/systemd/system/puma.service
+    notify: reload puma
+  - name: Add config for DB connection
+    template:
+      src: packer-db_config.j2
+      dest: /home/appuser/db_config
+  - name: enable puma
+    become: true
+    systemd: name=puma enabled=yes
+  handlers:
+  - name: reload puma
+    become: true
+    systemd: name=puma state=restarted
+    ```
+```
+packer_app.yml (конечная версия):
+---
+```
+---
+- name: Configure db server
+  hosts: all
+  become: true
+  vars:
+    mongo_bind_ip: 0.0.0.0           # вообще это надо бы оставить ансиблу, но тут ведь совсем чуть-чуть!
+  tasks:
+  - name: add MongoDB public GPG key
+    apt_key: url=https://docs.mongodb.org/10gen-gpg-key.asc id=7F0CEB10 state=present validate_certs=False
+  - name: add MongoDB stable repository (for Ubuntu)
+    apt_repository: repo='deb http://repo.mongodb.org/apt/{{ ansible_distribution|lower }}  {{ ansible_distribution_release|lower }}/mongodb-org/4.2 multiverse' state=present
+    when: ansible_distribution == "Ubuntu"
+  - name: run the equivalent of "apt-get update" as a separate step
+    apt: 
+      update_cache: yes
+  - name: install mongo db
+    apt: 
+      name: mongodb-org
+      state: present
+      force: yes
+  - name: Change mongo config file  # вообще это надо бы оставить ансиблу, но тут ведь совсем чуть-чуть!
+    template:
+      src: mongod.conf.j2
+      dest: /etc/mongod.conf
+      mode: 0644
+    notify: restart mongod
+  handlers:
+  - name: restart mongod
+    service: name=mongod state=restarted
 ```
 Заменим провижинеры в packer\app.json packer\db.json:
 ```
@@ -1278,43 +1350,18 @@ terraform destroy && terraform apply
         }
     ]
 ```
-Пробуем выпечь:
-```
-$ packer build -var-file packer/variables.app.json packer/app.json 
-googlecompute output will be in this color.
-==> googlecompute: Checking image does not exist...
-==> googlecompute: Image reddit-app-base already exists.
-```
-Это начинает надоедать. А ну ка, gcloud:
+Удалим существующий образ и накатим его пару десятков раз заново:
 ```
 $ gcloud compute images list --filter="name=( 'reddit-app-base' )"
-NAME             PROJECT       FAMILY       DEPRECATED  STATUS
+```
 reddit-app-base  infra-253310  reddit-base              READY
 ```
-И
-````
 $ gcloud compute images delete reddit-app-base
 &&
 $ packer build -var-file packer/variables.app.json packer/app.json 
-...
-==> googlecompute: Provisioning with Ansible...
-==> googlecompute: Executing Ansible: ansible-playbook --extra-vars packer_build_name=googlecompute packer_builder_type=googlecompute -o IdentitiesOnly=yes -i /tmp/packer-provisioner-ansible493417454 /home/guildin/github/guildin_infra/ansible/packer_app.yml -e ansible_ssh_private_key_file=/tmp/ansible-key382630411
-    googlecompute: [WARNING]: Could not match supplied host pattern, ignoring: redditapp
-    googlecompute:
-    googlecompute: PLAY [Configure appserver] *****************************************************
-    googlecompute: skipping: no hosts matched
-...
-==> Builds finished. The artifacts of successful builds are:
---> googlecompute: A disk image was created: reddit-app-base
 ```
-  * Действительно, чего это я? Поправим плейлист packer_app.yml:
-```
-  hosts: all
-```
-И packer_db.yml аналогично.
-Удалим и запечем снова. 
---> googlecompute: A disk image was created: reddit-app-base
 Повторим процедуру с db образом:
+
 ```fatal: [default]: FAILED! => {"changed": false, "msg": "Could not find the requested service mongod: host"}```
 Правильно, потому что надо еще mongo залить. Вот этот господин предоставляет неплохой вариант для развертывания:
 https://github.com/William-Yeh/ansible-mongodb/blob/master/tasks/use-apt.yml
@@ -1334,13 +1381,14 @@ https://github.com/William-Yeh/ansible-mongodb/blob/master/tasks/use-apt.yml
       force: yes
 ```
 Первые десятки блинов, как водится - комом. Листинг сделанных ошибок:
-  * использование нотации k:\n v и k=v одновременно, в пределах одной задачи должно быть что то одно
-  * путь к шаблонам: указывание templates/template.conf.j2 не работает, а template.conf.j2 - как ни странно, да
+  *использование нотации k:\n v и k=v одновременно, в пределах одной задачи должно быть что то одно
+  *путь к шаблонам: указывание templates/template.conf.j2 не работает, а template.conf.j2 - как ни странно, да
 
+## A2 Резолюция. Выводы
 По факту проделанной работы выполнен сброс и развертывание инфраструктуры с новоиспеченными образами дисков. Выводы прошедших суток:
-  * Документирование (конспектирование) проделанной работы облегчает последующую эксплуатацию.
-  * Процесс выпекания образов и откатки плейлистов длительный настолько, что любая автоматизация экономит времени больше, чем занимает ее реализация.
-  * Предварительная постановка задачи (записывание ее) не дает отклониться от намеченного курса и должна проводиться вне зависимости от кажущейся простоты разработки.
+  *Документирование (конспектирование) проделанной работы облегчает последующую эксплуатацию.
+  *Процесс выпекания образов и откатки плейлистов длительный настолько, что любая автоматизация экономит времени больше, чем занимает ее реализация.
+  *Предварительная постановка задачи (записывание ее) не дает отклониться от намеченного курса и должна проводиться вне зависимости от кажущейся простоты разработки.
 
 Самостоятельная работа завершена, работоспособность кода проверена.
 
