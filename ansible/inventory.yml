@@ -1,9 +1,9 @@
-app:
-  hosts:
-    appserver:
-      ansible_host: 35.240.110.146
-db:
-  hosts:
-    dbserver:
-      ansible_host: 34.77.176.136  
-
+all: 
+  children:
+    redditapp:
+      hosts:
+        35.240.110.146: null
+    redditdb:
+      hosts:
+        34.77.176.136: null
+        
