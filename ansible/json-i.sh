@@ -3,7 +3,7 @@ function getHost () {
 	if [[ -n $1 ]]
 	then
 		printf "getting data for host $1  \n"
-		ansible-inventory -i inventory.gcp.yml --list --output inventory.json
+		ansible-inventory -i files/inventory.gcp.yml --list --output inventory.json
 		cat inventory.json | jq '._meta.hostvars['\"$1\"']' > inventory.json
 	else
 		printf "No hostname specified!"
@@ -11,7 +11,7 @@ function getHost () {
 	}
 
 function getList() {
-	ansible-inventory -i inventory.gcp.yml --list --output inventory.json
+	ansible-inventory -i files/inventory.gcp.yml --list --output inventory.json
 	printf "{\n" 
 	printf "    \"all\": {\n"
 	printf "         \"children\":{\n"
