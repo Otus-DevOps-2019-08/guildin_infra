@@ -1,8 +1,15 @@
+
 {
     "all": {
-         "children":
-           {
-"hosts": 
-{"35.241.204.244": null,
-"23.251.128.237": null,
-         }       }
+         "children":{
+        "redditapp": {
+                 "hosts": {
+"35.240.110.146": null }
+},
+        "redditdb": {
+                 "hosts": {
+"34.77.176.136": null }
+}
+             }
+       }
+}

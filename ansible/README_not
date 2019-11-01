@@ -1,0 +1,262 @@
+# Ansible-2
+Подготовка к работе. Заплакал и закомментировал провижинеры в терраформ. Шутка, мне они никогда не нравились. В пакере я готовил образ с нужным софтом для быстрого развертывания, в терраформ их развертывал, а конфигурацию всегда хотел в ансибл.
+## Плейбуки
+Создадим файл reddit_app.yml, по сути являющийся плейбуком. Разберем подробнее:
+cat reddit_app.yml 
+```
+---
+- name: Configure hosts & deploy application # < Пространные имена слегка непривычны, так и хочется обозвать из описанием, но поди ж ты.
+  hosts: all                                 # < 
+  vars:
+    mongo_bind_ip: 0.0.0.0                   # < должен быть словарь, ключ: значение | в нашем случае объявляем значение переменной, определенной в шаблоне
+  tasks:                                     # < Собственно, задачи плейбука
+  - name: Change mongo config file           # < Что ж имена то так описательно выглядят ((
+    become: true                             # < По существу: выполнять с повышением прав.
+    template:                                
+      src: templates/mongod.conf.j2          # Я удивлен, что шаблон не надо обзывать пространно. Пытался, не вышло. А вот источник указывать надо, не отвертишься.
+      dest: /etc/mongod.conf                 # Как и назначение. В нашем случае файл. Ой, да в unix все файл.
+      mode: 0644                             # Ненавижу эти маски. Когда же я в них разберусь?!
+  tags: db-tag # <-- Список тэгов для задачи # !!! Узнать, куда собачить тег. Собственно, фильтрация, не будем же мы на фронтэнд это пихать?
+```
+
+## Шаблоны
+```
+cat templates/mongod.conf.j2       # *.j2 conventionally обозначает что мы делаем шаблон. Это для нас, не для обработчика.
+storage:
+  dbPath: /var/lib/mongodb               # Куда
+  journal:
+    enabled: true                      
+
+systemLog:
+  destination: file
+  logAppend: true
+  path: /var/log/mongodb/mongod.log
+
+net:                                               #настройка сокета
+  port: {{ mongo_port | default('27017') }}        # порт (mongo в данном случае) Смотрите, сразу определили значение по умолчанию
+  bindIp: {{ mongo_bind_ip }}                      # адрес прослушивания. Здесь дефолтного значения нет, так что без указания этого в плейбуке мы ничего не сделаем. 
+
+## Прогон плейбука
+```ansible-playbook reddit_app.yml --check --limit db```
+
+PLAY [Configure hosts & deploy application] *****************************************************************************************************************************
+TASK [Gathering Facts] **************************************************************************************************************************************************
+ok: [dbserver]
+TASK [Change mongo config file] *****************************************************************************************************************************************
+changed: [dbserver]
+PLAY RECAP **************************************************************************************************************************************************************
+dbserver                   : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+## Handlers // ну где же ваши ручки, давай поднимем ручки - так делать будут таски. Сорян-борян, это stage кусок документации. 
+Handlers  похожи  на  tasks,  однако  запускаются  только  по оповещению от других задач. Говоря своими словами, не являются самостоятельной сущностью, дочерни.
+Запишем это в плейбук:
+```
+...
+    notify: restart mongod # Эта строка относится к области действия одной из описанных задач. Она и содержит линк на имя хэндлера, который будем прогонять по факту выполнения задачи.
+...
+
+  handlers:
+  - name: restart mongod                     # вызывали?
+    become: true                             # режим господина.
+    service: name=mongod state=restarted     # суть выполняемых действий.
+
+```
+
+## Прогон плейбука
+
+```ansible-playbook reddit_app.yml --check --limit db```
+dbserver                   : ok=3    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+
+## Настройка инстанса приложения
+```
+---
+...
+  vars:
+    mongo_bind_ip: 0.0.0.0 
+    db_host: 10.132.0.5                   # Сюда - адрес сервера БД
+  tasks:
+в  - name: Change mongo config file
+    become: true
+    template:
+      src: templates/mongod.conf.j2
+      dest: /etc/mongod.conf
+      mode: 0644
+    tags: db-tag # <-- Список тэгов для задачи
+    notify: restart mongod
+  - name: Add unit file for Puma
+    become: true
+    copy:
+      src: files/puma.service
+      dest: /etc/systemd/system/puma.service
+      tags: app-tag
+      notify: reloadpuma
+  - name: Add config for DB connection
+    template:      
+      src: templates/db_config.j2
+      dest: /home/appuser/db_config
+      tags: app-tag
+  - name: enable puma
+    become: true
+    systemd: name=puma enabled=yes
+    tags: app-tag
+
+  handlers:
+  - name: restart mongod
+    become: true
+    service: name=mongod state=restarted
+  - name: reload puma
+    become: true
+    systemd: name=puma state=restarted
+```
+
+## Деплой
+Используем модули git и bundle:
+```
+  - name: Fetch the latest version of application code
+    git:
+      repo: 'https://github.com/express42/reddit.git'
+      dest: /home/appuser/reddit
+      version: monolith 
+    tags: deploy-tag
+    notify: reload puma
+  - name: Bundle install
+    bundler:
+      state: present
+      chdir: /home/appuser/reddit
+    tags: deploy-tag    
+```
+Проверим:  ansible-playbook reddit_app.yml --check --limit app --tags deploy-tag
+Выполним: ansible-playbook reddit_app.yml --limit app --tags deploy-tag
+
+## reddit_app_multiple_plays
+(в девичестве reddit_app2.yml) по сути дела немного оптимизированный сценарий reddit_app.yml в нем задачи сгруппированы и их параметры обобщены. 
+Отладка и проверка проведена успешно.
+
+## site.yml
+АКА несколько сценариев. Задачи плейбука растащены по отдельным файлам, и сразу же приступаем к Ж-задаче:
+И да:
+```
+mv reddit_app.yml reddit_app_one_play.yml
+mv reddit_app2.yml reddit_app_multiple_plays.yml
+``
+
+# A2 Задание Ж
+В предыдущем разделе журнала был представлен кривой, в но в целом рабочий генератор inventory в формате json. К моменту формирования второй версии плейбука (reddit_app_multiple_plays.yml) дергание за хосты окончательно надоело и я решил вернуться к динамике. Работа после этого выглядела примерно так:
+```
+terraform destroy && terraform apply
+...
+
+ 2001  ./json-i.sh --list > jinventory.json 
+ 2002  ansible-playbook -i jinventory.json reddit*.yml
+```
+При том переменную db_host я дергал ручками, что навевало безрадостные мысли о мелких недоделках и доколе(!).
+Итого остается делать три вещи: 
+  * натравить ansible.cfg на jinventory.json (сам файл динамического инвентори формировать в json-i.sh) 
+  * скормить результат вывода terraform output (а конкретно адрес субд) в конфиг app.yml
+
+### app.yml и db_host variable
+Раз уж мы дергаем json-i.sh после каждого дестроя ии апплая, пусть потрудится и содержимое outputs в нужном нам ключе пишет в файл с переменными:
+```
+	dbhost=$(cd ../terraform/stage && terraform output -json db_addr | jq '. []')
+	sed -i "s/^db_host:\ .*$/db_host: $dbhost/" variables.yml 
+	sed -i 's/"//g' variables.yml
+```
+Импортируем переменную для variables.yml в задачу:
+```
+  tasks:
+    - include_vars: variables.yml
+```
+Немного траблшутинга(ну уж и немного): деплой приложений в site.yml должен быть до их конфигурации. Да, я люблю грабли.
+
+Проверка:
+```
+ terraform destroy
+ terraform apply
+ 2066  ./json-i.sh --list > jinventory.json 
+ 2067  ansible-playbook site.yml
+ 2070  curl http://34.77.176.136:9292/ >>>>> <!DOCTYPE html> ...
+```
+
+# Provisioning at packer
+Не глядя (там разберемся):
+```
+ 2072  cp app.yml packer_app.yml
+ 2073  cp db.yml packer_db.yml
+```
+Заменим провижинеры в packer\app.json packer\db.json:
+```
+    "provisioners": [
+        {
+            "type": "ansible",
+            "playbook_file": "ansible/packer_{app|db}.yml"
+        }
+    ]
+```
+Пробуем выпечь:
+```
+$ packer build -var-file packer/variables.app.json packer/app.json 
+googlecompute output will be in this color.
+==> googlecompute: Checking image does not exist...
+==> googlecompute: Image reddit-app-base already exists.
+```
+Это начинает надоедать. А ну ка, gcloud:
+```
+$ gcloud compute images list --filter="name=( 'reddit-app-base' )"
+NAME             PROJECT       FAMILY       DEPRECATED  STATUS
+reddit-app-base  infra-253310  reddit-base              READY
+```
+И
+````
+$ gcloud compute images delete reddit-app-base
+&&
+$ packer build -var-file packer/variables.app.json packer/app.json 
+...
+==> googlecompute: Provisioning with Ansible...
+==> googlecompute: Executing Ansible: ansible-playbook --extra-vars packer_build_name=googlecompute packer_builder_type=googlecompute -o IdentitiesOnly=yes -i /tmp/packer-provisioner-ansible493417454 /home/guildin/github/guildin_infra/ansible/packer_app.yml -e ansible_ssh_private_key_file=/tmp/ansible-key382630411
+    googlecompute: [WARNING]: Could not match supplied host pattern, ignoring: redditapp
+    googlecompute:
+    googlecompute: PLAY [Configure appserver] *****************************************************
+    googlecompute: skipping: no hosts matched
+...
+==> Builds finished. The artifacts of successful builds are:
+--> googlecompute: A disk image was created: reddit-app-base
+```
+  * Действительно, чего это я? Поправим плейлист packer_app.yml:
+```
+  hosts: all
+```
+И packer_db.yml аналогично.
+Удалим и запечем снова. 
+--> googlecompute: A disk image was created: reddit-app-base
+Повторим процедуру с db образом:
+```fatal: [default]: FAILED! => {"changed": false, "msg": "Could not find the requested service mongod: host"}```
+Правильно, потому что надо еще mongo залить. Вот этот господин предоставляет неплохой вариант для развертывания:
+https://github.com/William-Yeh/ansible-mongodb/blob/master/tasks/use-apt.yml
+```
+  - name: add MongoDB public GPG key
+    apt_key: url=https://docs.mongodb.org/10gen-gpg-key.asc id=7F0CEB10 state=present validate_certs=False
+  - name: add MongoDB stable repository (for Ubuntu)
+    apt_repository: repo='deb http://repo.mongodb.org/apt/{{ ansible_distribution|lower }}  {{ ansible_distribution_release|lower }}/mongodb-org/4.2 multiverse' state=present
+    when: ansible_distribution == "Ubuntu"
+  - name: run the equivalent of "apt-get update" as a separate step
+    apt: 
+      update_cache: yes
+  - name: install mongo db
+    apt: 
+      name: mongodb-org
+      state: present
+      force: yes
+```
+Первые десятки блинов, как водится - комом. Листинг сделанных ошибок:
+  * использование нотации k:\n v и k=v одновременно, в пределах одной задачи должно быть что то одно
+  * путь к шаблонам: указывание templates/template.conf.j2 не работает, а template.conf.j2 - как ни странно, да
+
+По факту проделанной работы выполнен сброс и развертывание инфраструктуры с новоиспеченными образами дисков. Выводы прошедших суток:
+  * Документирование (конспектирование) проделанной работы облегчает последующую эксплуатацию.
+  * Процесс выпекания образов и откатки плейлистов длительный настолько, что любая автоматизация экономит времени больше, чем занимает ее реализация.
+  * Предварительная постановка задачи (записывание ее) не дает отклониться от намеченного курса и должна проводиться вне зависимости от кажущейся простоты разработки.
+
+Самостоятельная работа завершена, работоспособность кода проверена.
+
+

@@ -4,7 +4,7 @@
             "reddit-app": {
                 "canIpForward": false, 
                 "cpuPlatform": "Intel Haswell", 
-                "creationTimestamp": "2019-10-26T03:50:43.150-07:00", 
+                "creationTimestamp": "2019-10-30T02:23:15.254-07:00", 
                 "deletionProtection": false, 
                 "disks": [
                     {
@@ -27,7 +27,7 @@
                         "type": "PERSISTENT"
                     }
                 ], 
-                "id": "1910943287059520493", 
+                "id": "9124733437881935981", 
                 "image": null, 
                 "kind": "compute#instance", 
                 "labelFingerprint": "42WmSpB8rSM=", 
@@ -50,12 +50,12 @@
                             {
                                 "kind": "compute#accessConfig", 
                                 "name": "external-nat", 
-                                "natIP": "104.199.82.210", 
+                                "natIP": "35.240.110.146", 
                                 "networkTier": "PREMIUM", 
                                 "type": "ONE_TO_ONE_NAT"
                             }
                         ], 
-                        "fingerprint": "FxAYGF_lH6s=", 
+                        "fingerprint": "g3wsKIDPCBI=", 
                         "kind": "compute#networkInterface", 
                         "name": "nic0", 
                         "network": {
@@ -63,7 +63,7 @@
                             "region": "global", 
                             "selfLink": "https://www.googleapis.com/compute/v1/projects/infra-253310/global/networks/default"
                         }, 
-                        "networkIP": "10.132.15.229", 
+                        "networkIP": "10.132.0.48", 
                         "subnetwork": {
                             "name": "default", 
                             "region": "europe-west1", 
@@ -92,7 +92,7 @@
             "reddit-db": {
                 "canIpForward": false, 
                 "cpuPlatform": "Intel Haswell", 
-                "creationTimestamp": "2019-10-26T03:50:38.458-07:00", 
+                "creationTimestamp": "2019-10-30T02:23:11.321-07:00", 
                 "deletionProtection": false, 
                 "disks": [
                     {
@@ -115,7 +115,7 @@
                         "type": "PERSISTENT"
                     }
                 ], 
-                "id": "3129912751499614738", 
+                "id": "5354197651771680913", 
                 "image": null, 
                 "kind": "compute#instance", 
                 "labelFingerprint": "42WmSpB8rSM=", 
@@ -138,12 +138,12 @@
                             {
                                 "kind": "compute#accessConfig", 
                                 "name": "external-nat", 
-                                "natIP": "35.187.39.18", 
+                                "natIP": "34.77.176.136", 
                                 "networkTier": "PREMIUM", 
                                 "type": "ONE_TO_ONE_NAT"
                             }
                         ], 
-                        "fingerprint": "amIAXrgEh2E=", 
+                        "fingerprint": "LH55pbhI7qE=", 
                         "kind": "compute#networkInterface", 
                         "name": "nic0", 
                         "network": {
@@ -151,7 +151,7 @@
                             "region": "global", 
                             "selfLink": "https://www.googleapis.com/compute/v1/projects/infra-253310/global/networks/default"
                         }, 
-                        "networkIP": "10.132.15.228", 
+                        "networkIP": "10.132.0.47", 
                         "subnetwork": {
                             "name": "default", 
                             "region": "europe-west1", 

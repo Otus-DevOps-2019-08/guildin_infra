@@ -1,0 +1,72 @@
+---
+- name: Configure db server
+  hosts: redditdb
+  become: true
+  vars:
+    mongo_bind_ip: 0.0.0.0 
+  tasks:
+  - name: Change mongo config file
+    template:
+      src: templates/mongod.conf.j2
+      dest: /etc/mongod.conf
+      mode: 0644
+    tags: db-tag # <-- Список тэгов для задачи
+    notify: restart mongod
+  handlers:
+  - name: restart mongod
+    service: name=mongod state=restarted
+
+- name:  Deploy app
+  hosts: redditapp
+  become: true
+  tags: deploy-tag
+  vars:
+  tasks:
+  - name: Install ruby bundler build-essential
+    apt:
+      name: "{{ packages }}"
+    vars:
+      packages:
+      - ruby-full
+      - ruby-bundler
+      - build-essential
+  - name: Fetch the latest version of application code
+    git:
+      repo: 'https://github.com/express42/reddit.git'
+      dest: /home/appuser/reddit
+      version: monolith   # <-- Указываем нужную ветку
+    notify: reload puma
+  - name: Bundle install
+    bundler:
+      state: present
+      chdir: /home/appuser/reddit # <-- В какой директории выполнить команду bundle    
+  - name: reload puma
+    become: true
+    systemd: name=puma state=restarted
+
+- name: Configure appserver
+  hosts: redditapp
+  become: true
+  tags: app-tag
+  vars:
+   db_host: 10.132.0.10
+  tasks:
+    - name: Add unit file for Puma
+      copy:
+        src: files/puma.service
+        dest: /etc/systemd/system/puma.service
+      notify: reload puma
+    - name: Add config for DB connection
+      template:
+        src: templates/db_config.j2
+        dest: /home/appuser/db_config
+    - name: enable puma
+      become: true
+      systemd: name=puma enabled=yes
+  handlers:
+  - name: reload puma
+    become: true
+    systemd: name=puma state=restarted
+
+
+
