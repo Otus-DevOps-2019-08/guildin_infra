@@ -1477,11 +1477,7 @@ $ ansible-playbook site.yml
 ```
 Проверим работу приложения.
 
-<<<<<<< HEAD
 ## Ansible окружения
-=======
-##Ansible окружения
->>>>>>> a8b3c2549b4b04ab3c3a11b7a96099bab895e038
   * Создадим директорию environments в директории ansible для определения настроек окружения.
   * В директории ansible/environments создадим две директории для наших окружений stage и prod .
   * Скопируем инвентори файл ansible/inventory в каждую из директорий окружения environtents/prod и environments/stage
@@ -1494,11 +1490,7 @@ $cat ansible.cfg
 inventory = ./environments/stage/inventory.yml # <-- inventory по умолчанию
 ...
 ```
-<<<<<<< HEAD
 ### Переменные групп хостов
-=======
-###Переменные групп хостов
->>>>>>> a8b3c2549b4b04ab3c3a11b7a96099bab895e038
 Создадим директорию group_vars в директориях окружений environments/prod и environments/stage.
 Перенесем данные из старого плейбука app.yml
 ```
