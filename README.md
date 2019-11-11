@@ -1399,11 +1399,6 @@ https://github.com/William-Yeh/ansible-mongodb/blob/master/tasks/use-apt.yml
 # Ansible-3
 Роли и окружения в ansible
 ## Ansible-galaxy
-=======
-#Ansible-3
-Роли и окружения в ansible
-##Ansible-galaxy
->>>>>>> a8b3c2549b4b04ab3c3a11b7a96099bab895e038
 
 Создание роли:
 ansible-galaxy init <role> - создание шаблона роли (соответствующих файлов и папок)
