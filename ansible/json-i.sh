@@ -11,15 +11,17 @@ function getHost () {
 	}
 
 function getList() {
-	ansible-inventory -i files/inventory.gcp.yml --list --output inventory.json
-	printf "{\n" 
-	printf "    \"all\": {\n"
-	printf "         \"children\":{\n"
+if [ -d "environments/$env" ]; then
+    invFile="environments/$env/dynamic-inventory.json"
+	ansible-inventory -i files/inventory.gcp.yml --list --output environments/${env}/inventory.json
+	printf "{\n" > ${invFile}
+	printf "    \"all\": {\n" >> ${invFile}
+	printf "         \"children\":{\n" >> ${invFile}
 	
 #имплементация группировки хостов. В данной работе предпочту не реализовывать.
 #Вместо этого возьму hostname и сделаю вид, что так и было.
 #Да, будет ругаться на дефисы. Все равно будет, можно было бы sed 's/-//g'
-	cat inventory.json | sed 's/-//' |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.name' > fill.arr
+	cat environments/${env}/inventory.json | sed 's/-//' |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.name' | sed 's/reddit//g' > fill.arr
 	i=0
 	while read line
 	do
@@ -29,7 +31,7 @@ function getList() {
 	rm fill.arr
 	
 	i=0
-	cat inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.networkInterfaces' | jq '.[0]' | jq '.accessConfigs' | jq '.[0]' | jq '.natIP' > IPs.arr	
+	cat environments/${env}/inventory.json |  jq '._meta' | jq '.hostvars' | jq '.[]' | jq '.networkInterfaces' | jq '.[0]' | jq '.accessConfigs' | jq '.[0]' | jq '.natIP' > IPs.arr	
 	while read line
 	do
 		IPs[$i]="$line"
@@ -40,30 +42,38 @@ function getList() {
 	j=0
 	for h in "${HOSTS[@]}"
 	do
-		printf "        ${HOSTS[$j]}: {\n                 \"hosts\": {\n" 
-		printf "${IPs[$j]}: null }\n"
+		printf "        ${HOSTS[$j]}: {\n                 \"hosts\": {\n" >> ${invFile}
+		printf "${IPs[$j]}: null }\n" >> ${invFile}
 	
-		if [[ $((i-j)) > 1 ]]; then printf "},\n"; else printf "}\n"; fi 
+		if [[ $((i-j)) > 1 ]]; then printf "},\n" >> ${invFile} ; else printf "}\n" >> ${invFile} ; fi 
 		j=$(($j+1))
 	done	
-			printf "             }\n       }\n}\n"
+			printf "             }\n       }\n}\n" >> ${invFile}
 	
 	dbhost=$(cd ../terraform/stage && terraform output -json db_addr | jq '. []')
-	sed -i "s/^db_host:\ .*$/db_host: $dbhost/" variables.yaml 
-	sed -i 's/"//g' variables.yaml
+	sed -i "s/^db_host:\ .*$/db_host: $dbhost/" environments/${env}/group_vars/app 
+	sed -i 's/"//g' environments/${env}/group_vars/app
+
+  else
+	printf "No such an environment"
+	break
+fi
+
 
 	}
 
-echo
-while [ -n "$1" ]
+while getopts Hle:h option
 do
-	case "$1" in
-		--list) getList ;;
-		--host) getHost $2 ;;
-		--help) printf "usage: json-i.sh ARGS\n --list - перечень хостов в инвентори \n --host [hostname] - выдать json-данные по этому хосту.\n";;
-	esac
-	shift
+case "${option}"
+in
+H) getHost=${OPTARG}; shift ;;
+l) listFunction=true;;
+e) env=${OPTARG}; shift ;;
+h) printf "usage: $0 ARGS\n -l parse inventory list \n -H [hostname] - выдать json-данные по этому хосту.\n -e указать environment(stage by default)";;
+*) printf "What is your options, dude?\n usage: $0 ARGS\n -l parse inventory list \n -H [hostname] - выдать json-данные по этому хосту.\n -e указать environment(stage by default)"
+esac
 done
 
 
+if [ $listFunction ]; then getList; fi
 

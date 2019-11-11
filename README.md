@@ -14,6 +14,9 @@ guildin Infra repository
 | [Ansible-1](#ansible-1) | Базовое задание | [A1 Задание Ж](#a1-задание-ж) | ЖЖ  |
 | --- | --- | --- | --- |
 | [Ansible-2](#ansible-2) | Базовое задание | [A2 Задание Ж](#a2-задание-ж) | [Ansible-2 packer](#ansible-2-packer)  |
+| --- | --- | --- | --- |
+| [Ansible-3](#ansible-3) | [Ansible-galaxy](ansible-galaxy) | [A3 Задание Ж](#a3-задание-ж) | [Ansible-vault](#ansible-vault)  |
+
 # Bastion-host
 Подключение к экземпляру ВМ, не имеющему внешнего адреса может быть выполнено через bastion-host:
 ssh -i ~/.ssh/gcp_id.rsa -A -J atikhonov.gcp@34.76.12.102 atikhonov.gcp@10.132.0.3
@@ -1386,10 +1389,278 @@ https://github.com/William-Yeh/ansible-mongodb/blob/master/tasks/use-apt.yml
 
 ## A2 Резолюция. Выводы
 По факту проделанной работы выполнен сброс и развертывание инфраструктуры с новоиспеченными образами дисков. Выводы прошедших суток:
-  *Документирование (конспектирование) проделанной работы облегчает последующую эксплуатацию.
-  *Процесс выпекания образов и откатки плейлистов длительный настолько, что любая автоматизация экономит времени больше, чем занимает ее реализация.
-  *Предварительная постановка задачи (записывание ее) не дает отклониться от намеченного курса и должна проводиться вне зависимости от кажущейся простоты разработки.
+  * Документирование (конспектирование) проделанной работы облегчает последующую эксплуатацию.
+  * Процесс выпекания образов и откатки плейлистов длительный настолько, что любая автоматизация экономит времени больше, чем занимает ее реализация.
+  * Предварительная постановка задачи (записывание ее) не дает отклониться от намеченного курса и должна проводиться вне зависимости от кажущейся простоты разработки.
 
 Самостоятельная работа завершена, работоспособность кода проверена.
 
+# Ansible-3
+Роли и окружения в ansible
+## Ansible-galaxy
+
+Создание роли:
+ansible-galaxy init <role> - создание шаблона роли (соответствующих файлов и папок)
+```
+$ ansible-galaxy init app
+$ ansible-galaxy init db
+```
+
+Ознакомимся с шалоном роли:
+```
+$ tree roles/db
+roles/db
+├── defaults               # <-- Директория для переменных по умолчанию
+│   └── main.yml
+├── files                  # <-- Файлы для деплоя. В тасках указывается только basename
+├── handlers
+│   └── main.yml
+├── meta                   # <-- Информация о роли, создателе и зависимостях
+│   └── main.yml
+├── README.md
+├── tasks                  # <-- Директория для тасков
+│   └── main.yml
+├── templates              # <-- шаблонизированные конфиги. Поиск по умолчанию, в тасках указывается только basename
+│   └── mongod.conf.j2
+├── tests
+│   ├── inventory
+│   └── test.yml
+└── vars                   # <-- Директория для переменных, которые не должны переопределяться пользователем
+    └── main.yml
+```
+
+Выполним перенос:
+  * списка задач в roles/db/main.yml, 
+  * хэндлеров в roles/db/handlers/main.yml
+  * используемые переменные в roles/db/defaults/main.yml
+
+Аналогичные действия выполним для роли app
+```
+$ tree roles/app
+roles/app
+├── defaults
+│   └── main.yml        # <-- db_host: 127.0.0.1
+├── files
+│   └── puma.service
+├── handlers
+│   └── main.yml
+├── meta
+│   └── main.yml
+├── README.md
+├── tasks
+│   └── main.yml
+├── templates
+│   └── db_config.j2    # <-- DATABASE_URL= {{ db_host }}  
+├── tests
+│   ├── inventory
+│   └── test.yml
+└── vars
+    └── main.yml
+```
+
+Удалим определение тасков и хендлеров app.yml и db.yml и заменим на вызов роли:
+
+```
+---
+- name: Configure App
+  hosts: app|db  
+  become: true  
+
+  roles:    
+    - app|db
+```
+
+Развернем terraform инфраструктуру (stage-окружение) и проверим работу роли:
+```
+$ ansible-playbook site.yml --check
+$ ansible-playbook site.yml
+```
+Проверим работу приложения.
+
+## Ansible окружения
+  * Создадим директорию environments в директории ansible для определения настроек окружения.
+  * В директории ansible/environments создадим две директории для наших окружений stage и prod .
+  * Скопируем инвентори файл ansible/inventory в каждую из директорий окружения environtents/prod и environments/stage
+  * Исходный inventory удалим
+Теперь необходимо указывать используемый inventory при вызове: 
+```$ ansible-playbook -i environments/prod/inventory.yml deploy.yml```
+Чтобы не делать это каждый раз, можно присвоить значение по умолчанию: 
+```
+$cat ansible.cfg
+inventory = ./environments/stage/inventory.yml # <-- inventory по умолчанию
+...
+```
+### Переменные групп хостов
+Создадим директорию group_vars в директориях окружений environments/prod и environments/stage.
+Перенесем данные из старого плейбука app.yml
+```
+$ cat environments/stage/group_vars/app 
+db_host: 10.132.0.54
+...
+```
+
+Аналогичные действия для db:
+```
+$ cat environments/stage/group_vars/db 
+mongo_bind_ip: 0.0.0.0
+```
+Группа all создается по умолчанию для всех хостов. Определим переменные и для нее:
+```
+$ cat environments/stage/group_vars/all
+env: stage
+```
+
+Укажем значение env для групп по умолчанию (app|db):
+```
+$ cat roles/app/defaults/main.yml 
+...
+env: local
+```
+
+Добавим в задачи для ролей вывод информации об окружении:
+```
+$ cat roles/app/tasks/main.yml 
+...
+- name: Show info about the env this host belongs to  
+  debug:    
+    msg: "This host is in {{ env }} environment!!!"
+```
+
+Перенесем плейбуки в созданную папку playbooks, прочие (неиспользуемые) файлы от предыдущих занятий в папку old
+В корневой папке (ansible) останется только ansible.cfg и requirements.txt
+
+Модифицируем файл настроек:
+```
+$ cat ansible.cfg 
+[defaults]
+inventory = ./environments/stage/inventory.yml
+remote_user = appuser
+private_key_file = ~/.ssh/appuser
+host_key_checking = False
+retry_files_enabled = False
+roles_path = ./roles
+vault_password_file = ~/.ansible/vault.key
+
+[diff]
+#Включим обязательный вывод diff при наличии изменений и вывод 5 строк контекста
+always = True
+context = 5
+```
+
+Выполним ansible-playbook playbooks/site.yml и убедимся, что окружение развернулось правильно.
+
+Проделаем аналогичные настройки для prod окужения, пересоздадим инфраструктуру и запустим плейбук для окружения prod:
+```ansible-playbook -i environments/prod/inventory playbooks/site.yml```
+
+Проверим, что окружение развернулось правильно.
+
+
+## Работа с Community-ролями
+
+  * Создадим файлы environments/stage/requirements.yml и environments/prod/requirements.yml
+```
+$ cat environments/stage/requirements.yml 
+- src: jdauphant.nginx
+  version: v2.21.1
+```
+  * Установим роль jdauphant.nginx: 
+```ansible-galaxy install -r environments/stage/requirements.yml```
+
+  * Добавим jdauphant.nginx в .gitignore
+  * Настроим community роль jdauphant.nginx 
+```
+$ cat environments/stage/group_vars/app
+db_host: 10.132.0.54
+nginx_sites:
+  default:
+  - listen 80
+  - server_name "reddit"
+  - location / {
+    proxy_pass http://127.0.0.1:9292;
+    }
+```
+  * добавим прогон jdauphant.nginx в site.yml и проверим развертывание
+
+## Ansible-Vault
+Для безопасной работы с приватными данными (пароли, приватные ключи и т.д.) используется механизм Ansible Vault .
+Данные сохраняются в зашифрованных файлах, которые при выполнении плейбука автоматически расшифровываются. Таким образом, приватные данные можно хранить в системе контроля версий.
+Для шифрования используется мастер-пароль (aka vault key). Его нужно передавать команде ansible-playbook при запуске, либо указать файл с ключом в ansible.cfg. 
+!!! Не хранить в в Git
+!!! Использовать для разных окружений разный vault key.
+
+  * Создадим vault key за пределами git (или добавить в gitignore, но я против):
+  * Добавим ссылку на него в файл настроек:
+```
+$ cat ansible.cfg 
+...
+vault_password_file = ~/.ansible/vault.key
+
+```
+  * Добавим плейбук для создания пользователей:
+```
+$ cat playbooks/users.yml 
+---
+- name: Create users
+  hosts: all
+  become: true
+
+  vars_files:
+    - "{{ inventory_dir }}/credentials.yml"
+
+  tasks:
+    - name: create users
+      user:
+        name: "{{ item.key }}"
+        password: "{{ item.value.password|password_hash('sha512', 65534|random(seed=inventory_hostname)|string) }}"
+        groups: "{{ item.value.groups | default(omit) }}"
+      with_dict: "{{ credentials.users }}"
+
+```
+  * Создадим файл с данными пользователей для каждого окружения:
+```
+$ cat environments/stage/credentials.yml 
+---
+credentials:
+  users:
+    admin:
+      password: qwerty123
+      groups: sudo
+    qauser:
+      password: test123
+```
+  * Зашифруем файлы используя vault.key
+```
+$ ansible-vault encrypt environments/prod/credentials.yml
+$ ansible-vault encrypt environments/stage/credentials.yml
+```
+  * Убедимся, что значение файлов зашифровано
+  * Добавим вызов плейбука в файл site.yml и проверим создание окружения
+```
+TASK [create users]**
+changed: [35.240.64.159] => (item={'value': {u'password': u'qwerty123', u'groups': u'sudo'}, 'key': u'admin'})
+changed: [34.76.133.231] => (item={'value': {u'password': u'qwerty123', u'groups': u'sudo'}, 'key': u'admin'})
+changed: [35.240.64.159] => (item={'value': {u'password': u'test123'}, 'key': u'qauser'})
+changed: [34.76.133.231] => (item={'value': {u'password': u'test123'}, 'key': u'qauser'})
+```
+  * Для редактирования зашифрованных файлов можно использовать ansible-vault edit или предварительно дешифровать (ansible-vault decrypt)
+
+# Ansible-3 Ж
+Динамический инвентори
+
+## Постановка задачи
+Имеющися парсер динамического инвентори необходимо модифицировать таким образом, чтобы генерируемый файл inventory помещался в указанное окружение.
+
+## Реализация
+Файл json-i.sh модифицирован:
+  * ключ -l активирует выполнение функции getList. Указывать файл выгрузки более не требуется, теперь это environments/env-name/dynamic-inventory.json
+  * ключ -e <env-name> указывает необходимое окружение
+  * ключ -H активирует выполнение функции getHost (выгружает данные для указанного хоста. Бесполезно, но оставил для истории)
+  * адрес db (dbhost) устанавливает значение адреса узла СУБД в environments/env-name/group_vars_/app.
+
+Пример запуска:
+```
+ $./json-i.sh -l -e stage
+ $ansible-playbook -i environments/stage/dynamic-inventory.json playbooks/site.yml
+```
+Деплой протестирован успешно.
 
