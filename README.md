@@ -15,7 +15,7 @@ guildin Infra repository
 | --- | --- | --- | --- |
 | [Ansible-2](#ansible-2) | Базовое задание | [A2 Задание Ж](#a2-задание-ж) | [Ansible-2 packer](#ansible-2-packer)  |
 | --- | --- | --- | --- |
-| [Ansible-3](#ansible-3) | [Ansible-galaxy](ansible-galaxy) | [A3 Задание Ж](#a3-задание-ж) | [Ansible-vault](#ansible-vault)  |
+| [Ansible-3](#ansible-3) | [Ansible-galaxy](#ansible-galaxy) | [A3 Задание Ж](#a3-задание-ж) | [Ansible-vault](#ansible-vault)  |
 
 # Bastion-host
 Подключение к экземпляру ВМ, не имеющему внешнего адреса может быть выполнено через bastion-host:
@@ -1644,7 +1644,7 @@ changed: [34.76.133.231] => (item={'value': {u'password': u'test123'}, 'key': u'
 ```
   * Для редактирования зашифрованных файлов можно использовать ansible-vault edit или предварительно дешифровать (ansible-vault decrypt)
 
-# Ansible-3 Ж
+# A3 Задание Ж
 Динамический инвентори
 
 ## Постановка задачи
