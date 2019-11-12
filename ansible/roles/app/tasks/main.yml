@@ -13,6 +13,6 @@
 - name: enable puma
   systemd: name=puma enabled=yes
   notify: reload puma
-- name: Show info about the env this host belongs to  
-  debug:    
+- name: Show info about the env this host belongs to
+  debug:
     msg: "This host is in {{ env }} environment!!!"

@@ -5,21 +5,12 @@
     dest: /etc/mongod.conf
     mode: 0644
   notify: restart mongod
-- name: Show info about the env this host belongs to  
-  debug:    
+- name: Show info about the env this host belongs to
+  debug:
     msg: "This host is in {{ env }} environment!!!"
 - name: start mongod
   service:
     name=mongod
     state=started
     enabled=yes
-- name: checking service status
-  command: systemctl status "{{ item }}"
-  with_items:
-  - mongod
-  register: result
-  ignore_errors: yes
-- name: showing report
-  debug:
-    var: result
 
