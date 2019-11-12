@@ -4,12 +4,12 @@
   copy:
     src: puma.service
     dest: /etc/systemd/system/puma.service
-#  notify: reload puma
+  notify: reload puma
 - name: Add config for DB connection
   template:
     src: db_config.j2
     dest: /home/appuser/db_config
-#  notify: reload puma
+  notify: reload puma
 - name: enable puma
   systemd: name=puma enabled=yes
   notify: reload puma
