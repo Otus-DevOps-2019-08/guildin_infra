@@ -1,5 +1,5 @@
 - name:  Deploy app
-  hosts: redditapp
+  hosts: app
   become: true
   vars:
   tasks:

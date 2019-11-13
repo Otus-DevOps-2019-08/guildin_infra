@@ -6,4 +6,5 @@ packer/variables.tf2lab.json
 *.tfvars
 .terraform/
 terraform/.terraform.tfstate.lock.info
-
+ansible/tmp/
+jdauphant.nginx

@@ -1,9 +1,9 @@
 all: 
   children:
-    redditapp:
+    app:
       hosts:
-        35.240.110.146: null
-    redditdb:
+        34.77.129.199: null
+    db:
       hosts:
         34.77.176.136: null
         
