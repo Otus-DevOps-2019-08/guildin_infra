@@ -1,16 +1,8 @@
 ---
-- name: Change mongo config file
-  template:
-    src: mongod.conf.j2
-    dest: /etc/mongod.conf
-    mode: 0644
-  notify: restart mongod
 - name: Show info about the env this host belongs to
   debug:
     msg: "This host is in {{ env }} environment!!!"
-- name: start mongod
-  service:
-    name=mongod
-    state=started
-    enabled=yes
+
+- include: install_mongo.yml
+- include: config_mongo.yml
 
