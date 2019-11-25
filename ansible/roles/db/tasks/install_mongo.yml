@@ -2,15 +2,17 @@
   apt_key: url=https://docs.mongodb.org/10gen-gpg-key.asc id=7F0CEB10 state=present validate_certs=False
   tags: mongod-server
 - name: add MongoDB stable repository (for Ubuntu)
-  apt_repository: repo='deb http://repo.mongodb.org/apt/{{ ansible_distribution|lower }}  {{ ansible_distribution_release|lower }}/mongodb-org/4.2 multiverse' state=present
+  apt_repository:
+    repo: 'deb http://repo.mongodb.org/apt/{{ ansible_distribution|lower }}  {{ ansible_distribution_release|lower }}/mongodb-org/4.2 multiverse'
+    state: present
   when: ansible_distribution == "Ubuntu"
   tags: mongod-server
 - name: run the equivalent of "apt-get update" as a separate step
-  apt: 
+  apt:
     update_cache: yes
   tags: mongod-server
 - name: install mongo db
-  apt: 
+  apt:
     name: mongodb-org
     state: present
     force: yes

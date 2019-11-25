@@ -8,7 +8,7 @@
 - name: Bundle install
   bundler:
     state: present
-    chdir: /home/{{ deploy_user }}/reddit 
+    chdir: /home/{{ deploy_user }}/reddit
   tags: puma-server
 - name: Add unit file for Puma
   template:
