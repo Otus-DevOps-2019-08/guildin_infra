@@ -17,7 +17,7 @@ guildin Infra repository
 | --- | --- | --- | --- |
 | [Ansible-3](#ansible-3) | [Ansible-galaxy](#ansible-galaxy) | [A3 Задание Ж](#a3-задание-ж) | [Ansible-vault](#ansible-vault)  |
 | --- | --- | --- | --- |
-| [Ansible-4](#ansible-4) | [А4 Провижининг](#а4-провижининг) | [A4 Задание Ж](#a4-задание-ж) | [Ansible-4 Тестирование роли](#ansible-4-тестирование-роли)  |
+| [Ansible-4](#ansible-4) | [А4 Провижининг](#а4-провижининг) | [A4 Задание Ж](#a4-задание-ж) | [A4 Тестирование роли](#a4-тестирование-роли)  |
 
 # Bastion-host
 Подключение к экземпляру ВМ, не имеющему внешнего адреса может быть выполнено через bastion-host:
@@ -1923,13 +1923,13 @@ $ vagrant ssh appserver
       }
 ```
 
-## Ansible-4 Задание Ж
+## A4 Задание Ж
 Конфигурация vagrant для nginx-проксирования.
 
 Постановка задачи: необходимо добавить конфигурацию проксирующего nginx таким образом, чтобы его подхватывал vagrant provisioning. В случае выполнения ansible-playbook подхватывалась из окружения  глобальная переменная nginx_sites, нужно обеспечить то же самое средствами vagrant. См. референс https://softwaretester.info/vagrant-and-yaml/
+--todo
 
-
-## Ansible-4 Тестирование роли
+## A4 Тестирование роли
 Установка зависимостей. 
 Документация virtualenv https://docs.python-guide.org/dev/virtualenvs/
 
