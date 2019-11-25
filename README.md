@@ -17,7 +17,7 @@ guildin Infra repository
 | --- | --- | --- | --- |
 | [Ansible-3](#ansible-3) | [Ansible-galaxy](#ansible-galaxy) | [A3 Задание Ж](#a3-задание-ж) | [Ansible-vault](#ansible-vault)  |
 | --- | --- | --- | --- |
-| [Ansible-4](#ansible-4) | [--](#--) | [A4 Задание Ж](#a4-задание-ж) | [Ansible-](#ansible-)  |
+| [Ansible-4](#ansible-4) | [А4 Провижининг](#а4-провижининг) | [A4 Задание Ж](#a4-задание-ж) | [Ansible-4 Тестирование роли](#ansible-4-тестирование-роли)  |
 
 # Bastion-host
 Подключение к экземпляру ВМ, не имеющему внешнего адреса может быть выполнено через bastion-host:
@@ -1674,14 +1674,12 @@ changed: [34.76.133.231] => (item={'value': {u'password': u'test123'}, 'key': u'
 
 # Ansible-4
 
-
-
 Локальная разработка при помощи Vagrant, доработка ролей для провижининга в Vagrant
 Тестирование ролей при помощи Molecule и Testinfra
 Переключение сбора образов пакером на использование ролей
 Подключение Travis CI для автоматического прогона тестов
 
-## Локальная разработка при помощи Vagrant
+## A4. Локальная разработка при помощи Vagrant
 Скачаем vagrant: https://www.vagrantup.com/downloads.html && установим и проверим результат:
 ```$ which vagrant
 /usr/bin/vagrant
@@ -1768,7 +1766,7 @@ $ vagrant ssh appserver
 ```
 Войдем и удостоверимся, что созданные в сети (где маска, Билли? Я ее не указывал!) 10.10.10.0/24 (наверное) машины связаны по сети.
 
-## Провижининг
+## А4 Провижининг
 Литература по вопросу: https://www.vagrantup.com/docs/provisioning/
 
 ### Роль db:
@@ -2137,6 +2135,6 @@ Build 'googlecompute' finished.
 --> googlecompute: A disk image was created: reddit-db-base
 ```
 
-Повторим аналогичную процедуру для app
+Повторим аналогичную процедуру для app и создадим образ reddit-app-base.
 
 
