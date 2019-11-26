@@ -16,6 +16,8 @@ guildin Infra repository
 | [Ansible-2](#ansible-2) | Базовое задание | [A2 Задание Ж](#a2-задание-ж) | [Ansible-2 packer](#ansible-2-packer)  |
 | --- | --- | --- | --- |
 | [Ansible-3](#ansible-3) | [Ansible-galaxy](#ansible-galaxy) | [A3 Задание Ж](#a3-задание-ж) | [Ansible-vault](#ansible-vault)  |
+| --- | --- | --- | --- |
+| [Ansible-4](#ansible-4) | [А4 Провижининг](#а4-провижининг) | [A4 Задание Ж](#a4-задание-ж) | [A4 Тестирование роли](#a4-тестирование-роли)  |
 
 # Bastion-host
 Подключение к экземпляру ВМ, не имеющему внешнего адреса может быть выполнено через bastion-host:
@@ -122,6 +124,10 @@ testapp_port = 9292
 # Сборка образов VM при помощи Packer
 
 ## Packer Базовое задание
+Установка packer: 
+Загрузка бинарника с http://packer.io/downloads.html
+Установим, поместим в /usr/bin (например)
+
 - Установлен packer (packer.io), создан ADC для авторизации:
 gcloud auth application-default login
 - созданы шаблон и файл уточнений для него: ubuntu16.json и variables.json[.example]; с помощью packer validate проверена корректность синтаксиса
@@ -801,9 +807,11 @@ resource "null_resource" "post-install" {
 # Ansible-1
 
 ## Установка ansible
+```
 sudo apt install python-pip
 echo "ansible>=2.4" > requirements.txt
 pip install -r requirements.txt
+```
 
 Не катит. Тогда:
 ```
@@ -1663,4 +1671,470 @@ changed: [34.76.133.231] => (item={'value': {u'password': u'test123'}, 'key': u'
  $ansible-playbook -i environments/stage/dynamic-inventory.json playbooks/site.yml
 ```
 Деплой протестирован успешно.
+
+# Ansible-4
+
+Локальная разработка при помощи Vagrant, доработка ролей для провижининга в Vagrant
+Тестирование ролей при помощи Molecule и Testinfra
+Переключение сбора образов пакером на использование ролей
+Подключение Travis CI для автоматического прогона тестов
+
+## A4. Локальная разработка при помощи Vagrant
+Скачаем vagrant: https://www.vagrantup.com/downloads.html && установим и проверим результат:
+```$ which vagrant
+/usr/bin/vagrant
+```
+ 
+Содержимое .gitignore:
+```
+# Vagrant & molecule
+.vagrant/
+*.log
+*.pyc
+.molecule
+.cache
+.pytest_cache
+```
+
+Создадим файл конфигурации Vagrantfile:
+```
+Vagrant.configure("2") do |config|
+
+  config.vm.provider :virtualbox do |v|                  # Указание на используемый провайдер. В данном случае virtualbox
+    v.memory = 512                                       # Количество выделяемой ВМ оперативной памяти
+  end
+
+  config.vm.define "dbserver" do |db|                    # определение ВМ. Vagrant формирует inventory, имя dbserver указывает на конкретную ВМ, "db" идетифицирует сценарий
+    db.vm.box = "ubuntu/xenial64"                        # образ ВМ (ака бокс)
+    db.vm.hostname = "dbserver"                          # hostname (самоназвание ВМ)
+    db.vm.network :private_network, ip: "10.10.10.10"    # тип сети и адрес ВМ
+
+    db.vm.provision "ansible" do |ansible|               # provisioning, тип оркестратора
+      ansible.playbook = "playbooks/site.yml"            # плейбук (кукбук) оркестратора
+      ansible.groups = {                                 # определение групп для ansible. Секунду, а если будет несколько машин, они в одном месте определяются или в нескольких?
+      "db" => ["dbserver"],
+      "db:vars" => {"mongo_bind_ip" => "0.0.0.0"}        # переменные. Это ключ - значение, а если ямлом надо что нибудь всобачить?
+      }
+    end
+  end
+  
+  config.vm.define "appserver" do |app|
+    app.vm.box = "ubuntu/xenial64"
+    app.vm.hostname = "appserver"
+    app.vm.network :private_network, ip: "10.10.10.20"
+
+    app.vm.provision "ansible" do |ansible|
+      ansible.playbook = "playbooks/site.yml"
+      ansible.groups = {
+      "app" => ["appserver"],
+      "app:vars" => { "db_host" => "10.10.10.10"}
+      }
+      ansible.extra_vars = {
+        "deploy_user" => "ubuntu"
+      }
+    end
+  end
+end
+```
+Справочно. Инвентори, создаваемое vagrant можно посмотреть:
+```cat .vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory```
+
+Vagrant Cloud. Здесь находятся образы ВМ, используемые vagrant: https://app.vagrantup.com/boxes/search
+Запустим vagrant:
+```
+vagrant up
+```
+В случае, если в локальном хранилище vagrant нет бокса (образа) указанных в конфиге ВМ, они будут скачаны.
+Для проверки наличия образов в локальном хранилище можно искользовать команду:
+```
+$ vagrant box list
+ubuntu/xenial64 (virtualbox, 20191114.0.0)
+```
+
+Проверим состояние ВМ (Если нужно посмотреть не все машины в инвентори вагранта используем vagrant status $name):
+```
+$ vagrant status
+Current machine states:
+
+dbserver                  running (virtualbox)
+appserver                 running (virtualbox)
+```
+
+В развернутые с помощью vagrant машины можно войти с помощью команды:
+```
+$ vagrant ssh appserver
+```
+Войдем и удостоверимся, что созданные в сети (где маска, Билли? Я ее не указывал!) 10.10.10.0/24 (наверное) машины связаны по сети.
+
+## А4 Провижининг
+Литература по вопросу: https://www.vagrantup.com/docs/provisioning/
+
+### Роль db:
+Добавим выполнение нашего плейбука site.yml, который дергает роль db (в конфиге выше есть, но ничего, пусть дублируется):
+```
+    db.vm.provision "ansible" do |ansible|               # provisioning, тип оркестратора
+      ansible.playbook = "playbooks/site.yml"            # плейбук (кукбук) оркестратора
+      ansible.groups = {                                 # определение групп для ansible. Секунду, а если будет несколько машин, они в одном месте определяются или в нескольких?
+      "db" => ["dbserver"],
+      "db:vars" => {"mongo_bind_ip" => "0.0.0.0"}        # переменные. Это ключ - значение, а если ямлом надо что нибудь всобачить?
+      }
+    end
+```
+Проблема, описанная в методичке не всплывает, видимо привет от новой версии ubuntu/xenial61
+Тем не менее, стоит упомянуть об использовании raw-модулей ansible:
+```
+---
+- name: Check && install python
+  hosts: all
+  become: true
+  gather_facts: False
+
+  tasks:
+    - name: Install python for Ansible
+      raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
+      changed_when: False
+```
+Добавим ее в playbooks/base.yml и отпровижионим по новой. 
+
+Добавим сценарий установки mongodb в roles/db/tasks/install_mongo.yml
+```
+- name: add MongoDB public GPG key
+  apt_key: url=https://docs.mongodb.org/10gen-gpg-key.asc id=7F0CEB10 state=present validate_certs=False
+- name: add MongoDB stable repository (for Ubuntu)
+  apt_repository: repo='deb http://repo.mongodb.org/apt/{{ ansible_distribution|lower }}  {{ ansible_distribution_release|lower }}/mongodb-org/4.2 multiverse' state=present
+  when: ansible_distribution == "Ubuntu"
+- name: run the equivalent of "apt-get update" as a separate step
+  apt: 
+    update_cache: yes
+- name: install mongo db
+  apt: 
+    name: mongodb-org
+    state: present
+    force: yes
+```
+
+...и конфигурации mongodb в roles/db/tasks/config_mongo.yml
+```
+---
+- name: Change mongo config file
+  template:
+    src: mongod.conf.j2
+    dest: /etc/mongod.conf
+    mode: 0644
+  notify: restart mongod
+```
+
+В файле roles/db/tasks/main.yml оставим только:
+```
+---
+- name: Show info about the env this host belongs to
+  debug:
+    msg: "This host is in {{ env }} environment!!!"
+
+- include: install_mongo.yml
+- include: config_mongo.yml
+```
+
+Повторим прогон роли vagrant provision dbserver и убедимся, что она отработала корректно. Зайдем на ВМ appserver и убедимся в доступности для нее СУБД на dbserver:
+```telnet 10.10.10.10 27017```
+
+### Роль app:
+Поместим деплой ruby в файл roles/app/tasks/ruby.yml
+```
+---
+- name: Run the equivalent of apt-get update as a separate step
+  apt:
+    update_cache: yes
+- name: Install ruby and rubygems and required packages
+  apt: "name={{ item }} state=present"
+  with_items:
+    - ruby-full
+    - ruby-bundler
+    - build-essential
+  tags: ruby
+```
+
+Развертывание puma server - в roles/app/tasks/puma.yml:
+```
+---
+- name: Fetch the latest version of application code
+  git:
+    repo: 'https://github.com/express42/reddit.git'
+    dest: /home/{{ deploy_user }}/reddit
+    version: monolith
+- name: Bundle install
+  bundler:
+    state: present
+    chdir: /home/{{ deploy_user }}/reddit 
+
+- name: Add unit file for Puma
+  template:
+    src: puma.service.j2
+    dest: /etc/systemd/system/puma.service
+
+- name: Add config for DB connection
+  template:
+    src: db_config.j2
+    dest: "/home/{{ deploy_user }}/db_config"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+
+- name: enable puma
+  systemd:
+    name: puma
+    enabled: yes
+
+- name: start puma
+  service:
+    name: puma
+    state: started
+```
+
+Применим вызовы в roles/app/tasks/main.yml и уберем дублирующие задачи:
+```
+---
+- name: Show info about the env this host belongs to
+  debug:
+    msg: "This host is in {{ env }} environment!!!"
+
+- include: ruby.yml
+- include: puma.yml
+```
+
+Внесем сценарий для провижининга в Vagrantfile:
+```
+    app.vm.provision "ansible" do |ansible|
+      ansible.playbook = "playbooks/site.yml"
+      ansible.groups = {
+      "app" => ["appserver"],
+      "app:vars" => { "db_host" => "10.10.10.10"}
+      }
+      ansible.extra_vars = {
+        "deploy_user" => "ubuntu"
+      }
+    end
+```
+
+### Переопределение переменных
+В Vagrantfile определим имеющие наиболее высокий приоритет переменные для файлов (выше уже параметризованные файлы, см. {{ deploy_user }} )
+```
+      ansible.extra_vars = {
+        "deploy_user" => "ubuntu"
+      }
+```
+
+## A4 Задание Ж
+Конфигурация vagrant для nginx-проксирования.
+
+Постановка задачи: необходимо добавить конфигурацию проксирующего nginx таким образом, чтобы его подхватывал vagrant provisioning. В случае выполнения ansible-playbook подхватывалась из окружения  глобальная переменная nginx_sites, нужно обеспечить то же самое средствами vagrant. См. референс https://softwaretester.info/vagrant-and-yaml/
+--todo
+
+## A4 Тестирование роли
+Установка зависимостей. 
+Документация virtualenv https://docs.python-guide.org/dev/virtualenvs/
+
+Обновим файл requirements:
+```
+...
+molecule>=2.6
+testinfra>=1.10
+python-vagrant>=0.5.15
+```
+Установка:
+```pip install -r requirements.txt```
+
+Снова эта вечная хрень с bdist_wheel, но вроде sudo apt install python-pip python-pip-whl build-essential libssl-dev libffi-dev python-dev помогла. 
+А вот molecule так не встала, пришлось залазить в virtualenv:
+```
+python -m virtualenv venv
+source ~/venv/bin/activate
+python -m pip install molecule
+molecule --version
+```
+
+### Тестирование роли db
+```molecule init scenario --scenario-name default -r db -d vagrant```
+(роль db, драйвер vagrant)
+
+добавим тесты db:
+db/molecule/default/tests/test_default.py
+```
+import os
+
+import testinfra.utils.ansible_runner
+
+testinfra_hosts = testinfra.utils.ansible_runner.AnsibleRunner(
+    os.environ['MOLECULE_INVENTORY_FILE']).get_hosts('all')
+
+# check if MongoDB is enabled and running
+def test_mongo_running_and_enabled(host):
+    mongo = host.service("mongod")
+    assert mongo.is_running
+    assert mongo.is_enabled
+
+# check if configuration file contains the required line
+def test_config_file(host):
+    config_file = host.file('/etc/mongod.conf')
+    assert config_file.contains('bindIp: 0.0.0.0')
+    assert config_file.is_file
+```
+
+попробуем создать тестовую машину:
+```
+$ molecule create
+    TASK [Create molecule instance(s)] *********************************************
+    failed: [localhost] (item=instance) => {"ansible_loop_var": "item", "changed": false, "item": {"box": "ubuntu/xenial64", "name": "instance"}, "module_stderr": "ERROR: Driver missing, install python-vagrant.\n", "module_stdout": "", "msg": "MODULE FAILURE\nSee stdout/stderr for the exact error", "rc": 1}
+```
+Запустим после установки python-vagrant
+
+Проверим ВМ после создания:
+```molecule list```
+
+Вход в ВМ
+```molecule login -h instance```
+
+molecule init генерирует плейбук db/molecule/default/playbook.yml 
+Добавим в него become: true для выполнения задач нашей роли, укажем адрес mongo_bind_ip:
+playbook.yml
+```
+---
+- name: Converge
+  hosts: all
+  become: true
+  vars:
+    mongo_bind_ip: 0.0.0.0
+  roles:
+    - role: db
+```
+
+Запустим плейбук: molecule converge
+Прогоним тест: molecule verify
+```
+    =================================== FAILURES ===================================
+    ______________ test_mongo_running_and_enabled[ansible://instance] ______________
+    
+    host = <testinfra.host.Host object at 0x7f9c77699f10>
+    
+        def test_mongo_running_and_enabled(host):
+            mongo = host.service("mongod")
+            assert mongo.is_running
+    >       assert mongo.is_enabled
+    E       assert False
+    E        +  where False = <service mongod>.is_enabled
+    
+    tests/test_default.py:21: AssertionError
+    ====================== 1 failed, 2 passed in 5.60 seconds ======================
+
+```
+Зайдем в ВМ и проверим статус, сервис активен. Это, однако, означает, что он активен в данный момент, после прогона плейбука, а не в принципе. Добавим задачу в tasks/install_mongo.yml:
+```
+- name: Enable service mongod
+  service:
+    name: mongod
+    enabled: yes
+```
+Прогоним плейбук еще раз с помощью molecule converge, и проверим с помощью molecule verify. Вот теперь тесты пройдены.
+
+### Самостоятельная работа
+Написать тест, проверяющий что БД прослушивает порт 27017
+Референс по модулям testinfra: https://testinfra.readthedocs.io/en/latest/modules.html
+
+Добавим тест в test_default.py:
+```
+# check if MongoDB is listening
+def test_mongo_listening(host):
+    socket_listening = host.socket("tcp://0.0.0.0:27017")
+    assert socket_listening.is_listening
+```
+Проверено.
+
+  * Роли и packer
+Перепишем packer_db.yml и packer_app.yml на использование ролей (вместо явного прописания задач):
+```
+---
+- name: Configure db server
+  hosts: all
+  become: true
+  vars:
+    mongo_bind_ip: 0.0.0.0 
+  roles:
+    - db
+```
+В db.json укажем:
+```
+...
+    "provisioners": [
+        {
+            "type": "ansible",
+            "playbook_file": "ansible/playbooks/packer_db.yml",
+            "extra_arguments": ["--tags","mongod-server"],
+            "ansible_env_vars": ["ANSIBLE_ROLES_PATH={{ pwd }}/ansible/roles"]
+        }
+...
+```
+
+В roles/db/tasks/install_mongo.yml укажем исполняемым задачам
+```  tags: mongod-server```
+
+Проверим валидность конфигурации:
+$ packer validate -var-file packer/variables.db.json packer/db.json
+
+Прогоним packer на создание образа:
+```
+$ packer build -var-file packer/variables.db.json packer/db.json
+googlecompute output will be in this color.
+
+==> googlecompute: Checking image does not exist...
+==> googlecompute: Creating temporary SSH key for instance...
+==> googlecompute: Using image: ubuntu-1604-xenial-v20191113
+==> googlecompute: Creating instance...
+    googlecompute: Loading zone: europe-west1-b
+    googlecompute: Loading machine type: f1-micro
+    googlecompute: Requesting instance creation...
+    googlecompute: Waiting for creation operation to complete...
+    googlecompute: Instance has been created!
+==> googlecompute: Waiting for the instance to become running...
+    googlecompute: IP: 104.155.78.217
+==> googlecompute: Using ssh communicator to connect: 104.155.78.217
+==> googlecompute: Waiting for SSH to become available...
+==> googlecompute: Connected to SSH!
+==> googlecompute: Provisioning with Ansible...
+==> googlecompute: Executing Ansible: ansible-playbook --extra-vars packer_build_name=googlecompute packer_builder_type=googlecompute -o IdentitiesOnly=yes -i /tmp/packer-provisioner-ansible790839112 /home/guildin/github/guildin_infra/ansible/playbooks/packer_db.yml -e ansible_ssh_private_key_file=/tmp/ansible-key742650957 --tags mongod-server
+    googlecompute:
+    googlecompute: PLAY [Configure db server] *****************************************************
+    googlecompute:
+    googlecompute: TASK [Gathering Facts] *********************************************************
+    googlecompute: ok: [default]
+    googlecompute:
+    googlecompute: TASK [db : add MongoDB public GPG key] *****************************************
+    googlecompute: changed: [default]
+    googlecompute:
+    googlecompute: TASK [db : add MongoDB stable repository (for Ubuntu)] *************************
+    googlecompute: changed: [default]
+    googlecompute:
+    googlecompute: TASK [db : run the equivalent of "apt-get update" as a separate step] **********
+    googlecompute: changed: [default]
+    googlecompute:
+    googlecompute: TASK [db : install mongo db] ***************************************************
+    googlecompute: changed: [default]
+    googlecompute:
+    googlecompute: TASK [db : Enable service mongod] **********************************************
+    googlecompute: changed: [default]
+    googlecompute:
+    googlecompute: PLAY RECAP *********************************************************************
+    googlecompute: default                    : ok=6    changed=5    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+    googlecompute:
+==> googlecompute: Deleting instance...
+    googlecompute: Instance has been deleted!
+==> googlecompute: Creating image...
+==> googlecompute: Deleting disk...
+    googlecompute: Disk has been deleted!
+Build 'googlecompute' finished.
+
+==> Builds finished. The artifacts of successful builds are:
+--> googlecompute: A disk image was created: reddit-db-base
+```
+
+Повторим аналогичную процедуру для app и создадим образ reddit-app-base.
+
 
